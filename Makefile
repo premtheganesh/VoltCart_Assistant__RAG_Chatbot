@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs api test test-all lint format
+.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview api test test-all lint format
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -39,6 +39,12 @@ generate-orders: ## Regenerate sample_data/data/orders.json (deterministic)
 
 render-docs: ## Render Markdown sources into PDF / DOCX / HTML documents
 	$(UV) python -m scripts.render_docs
+
+ingest: ## Embed new/changed documents + catalog into the knowledge base: make ingest args="--force"
+	$(UV) python -m scripts.ingest $(args)
+
+preview: ## Show how one file is chunked, no API calls: make preview f=sample_data/docs/shipping-policy.html
+	$(UV) python -m scripts.ingest --preview "$(f)"
 
 api: ## Run the API with auto-reload on http://localhost:8000
 	$(UV) uvicorn app.main:app --reload --port 8000

@@ -8,19 +8,23 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Predictable constraint names, so Alembic migrations can reference them later
@@ -155,3 +159,77 @@ class Shipment(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     order: Mapped[Order] = relationship(back_populates="shipment")
+
+
+# ---------- knowledge base (RAG) ----------
+
+# Must match the embedding model's output size (embed-multilingual-v3.0 = 1024).
+# Switching to a model with another size needs a migration and a full re-ingest.
+EMBED_DIM = 1024
+
+
+class Document(Base):
+    """One ingested source: a file in sample_data/docs or a catalog product."""
+
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Path relative to the project root, or "catalog:<SKU>"
+    source: Mapped[str] = mapped_column(String(500), unique=True)
+    title: Mapped[str] = mapped_column(String(300))
+    doc_type: Mapped[str] = mapped_column(String(30), index=True)
+    url: Mapped[str | None] = mapped_column(String(500))
+    updated: Mapped[date | None] = mapped_column(Date)
+    # sha256 of the raw file (or product text): unchanged hash = skip on re-ingest
+    content_hash: Mapped[str] = mapped_column(String(64))
+    embed_model: Mapped[str] = mapped_column(String(100))
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    chunks: Mapped[list["Chunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", order_by="Chunk.chunk_index"
+    )
+
+
+class Chunk(Base):
+    """A searchable piece of a document, with its embedding and full-text vector."""
+
+    __tablename__ = "chunks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    # "Section > Subsection" inside the document ("" for the intro)
+    heading: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(Text)
+    token_count: Mapped[int] = mapped_column(Integer)
+    page: Mapped[int | None] = mapped_column(Integer)
+    # SKUs mentioned in this chunk, for filtering and boosting in retrieval
+    products: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    # sha256 of the exact text that was embedded: lets unchanged chunks reuse their vector
+    chunk_hash: Mapped[str] = mapped_column(String(64), index=True)
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBED_DIM))
+    embed_model: Mapped[str] = mapped_column(String(100))
+    # Postgres keeps this up to date itself; used by keyword (BM25-style) search in Phase 4
+    tsv: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english', heading || ' ' || content)", persisted=True),
+    )
+
+    document: Mapped[Document] = relationship(back_populates="chunks")
+
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index"),
+        Index(
+            "ix_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        Index("ix_chunks_tsv", "tsv", postgresql_using="gin"),
+        Index("ix_chunks_products", "products", postgresql_using="gin"),
+    )

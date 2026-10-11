@@ -8,6 +8,7 @@ Create Date: ${create_date}
 from typing import Sequence, Union
 
 from alembic import op
+import pgvector.sqlalchemy  # noqa: F401  (autogenerate writes pgvector column types)
 import sqlalchemy as sa
 ${imports if imports else ""}
 

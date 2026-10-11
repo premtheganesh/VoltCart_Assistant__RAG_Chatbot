@@ -30,8 +30,15 @@ class Settings(BaseSettings):
 
     # Embeddings + rerank
     cohere_api_key: SecretStr | None = None
+    embed_provider: str = "cohere"
     embed_model: str = "embed-multilingual-v3.0"
+    embed_batch_size: int = 96  # Cohere's maximum texts per embed call
     rerank_model: str = "rerank-v3.5"
+
+    # Ingestion
+    docs_dir: str = "sample_data/docs"
+    chunk_max_tokens: int = 600
+    chunk_overlap_tokens: int = 80
 
     # Observability
     langfuse_public_key: str | None = None
