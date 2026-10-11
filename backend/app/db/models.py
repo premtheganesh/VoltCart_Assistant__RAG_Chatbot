@@ -233,3 +233,38 @@ class Chunk(Base):
         Index("ix_chunks_tsv", "tsv", postgresql_using="gin"),
         Index("ix_chunks_products", "products", postgresql_using="gin"),
     )
+
+
+# ---------- support ----------
+
+
+class TicketStatus(StrEnum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    CLOSED = "closed"
+
+
+class Ticket(TimestampMixin, Base):
+    """A request for a human agent, created by the chatbot; worked in the admin inbox."""
+
+    __tablename__ = "tickets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(100), index=True)
+    name: Mapped[str | None] = mapped_column(String(200))
+    email: Mapped[str] = mapped_column(String(320))
+    summary: Mapped[str] = mapped_column(Text)
+    # Why the bot handed off: customer_request, verification_locked, ...
+    reason: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default=TicketStatus.OPEN, index=True)
+    # Recent messages [{"role": ..., "content": ...}] so the agent needn't ask again
+    transcript: Mapped[list[dict]] = mapped_column(JSONB, default=list)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (CheckConstraint(_in_list("status", TicketStatus), name="valid_status"),)
+
+    @property
+    def reference(self) -> str:
+        return f"T-{self.id:05d}"

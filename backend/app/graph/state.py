@@ -23,6 +23,17 @@ class Analysis(BaseModel):
     )
 
 
+class Contact(BaseModel):
+    """Contact details for a support ticket, extracted from the chat."""
+
+    name: str | None = Field(default=None, description="The customer's name, if given")
+    email: str | None = Field(default=None, description="The customer's email, if given")
+    summary: str = Field(description="One or two sentences on what the customer needs")
+
+
+Awaiting = Literal["order_email", "handoff_contact"]
+
+
 class ChatState(TypedDict, total=False):
     # Full conversation; add_messages appends new messages instead of replacing the list
     messages: Annotated[list[AnyMessage], add_messages]
@@ -33,3 +44,12 @@ class ChatState(TypedDict, total=False):
     top_score: float | None
     passed_gate: bool | None
     citations: list[dict]  # the sources the answer actually cited
+
+    # Kept across turns (the conversation's security and handoff memory)
+    verified_orders: dict[str, str]  # order number -> email it was verified with
+    verify_attempts: int  # failed order verifications in this conversation
+    pending_order: str | None  # order number waiting for its email
+    pending_question: str | None  # what was asked about that order, for the policy search
+    awaiting: Awaiting | None  # what the bot just asked the customer for
+    handoff_reason: str | None  # why a human is needed, for the ticket
+    ticket_ref: str | None  # ticket already created in this conversation

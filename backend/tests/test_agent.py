@@ -11,7 +11,7 @@ from pydantic import Field
 from app.config import Settings
 from app.graph.agent import Agent, fallback_analysis, make_analyzer
 from app.graph.builder import build_graph, extract_citations, normalize_citations
-from app.graph.prompts import NO_ANSWER_REPLY, OFF_TOPIC_REPLY, ORDER_REPLY
+from app.graph.prompts import NO_ANSWER_REPLY, OFF_TOPIC_REPLY
 from app.graph.state import Analysis
 from app.llm.chat import get_chat_model
 from app.retrieval.retriever import RetrievalResult, RetrievedChunk
@@ -43,7 +43,7 @@ class Spy:
         self.analyzed.append(messages)
         return next(self.routes)
 
-    def retrieve(self, query):
+    def retrieve(self, query, doc_types=None):
         self.searched.append(query)
         return RetrievalResult(
             query=query, mode="hybrid_rerank", chunks=SOURCES,
@@ -61,8 +61,8 @@ class RecordingChat(FakeListChatModel):
         return super()._call(messages, *args, **kwargs)
 
 
-def make_agent(spy: Spy, answers=("Answer [1].",), chats=("Hello!",)):
-    answer_llm = RecordingChat(responses=list(answers))
+def make_agent(spy: Spy, answers=("Answer [1].",), chats=("Hello!",), **deps):
+    answer_llm = deps.pop("answer_llm", None) or RecordingChat(responses=list(answers))
     graph = build_graph(
         analyze=spy.analyze,
         retrieve=spy.retrieve,
@@ -70,6 +70,7 @@ def make_agent(spy: Spy, answers=("Answer [1].",), chats=("Hello!",)):
         chat_llm=FakeListChatModel(responses=list(chats)),
         checkpointer=InMemorySaver(),
         today=lambda: date(2026, 10, 10),
+        **deps,
     )
     return Agent(graph, Settings(_env_file=None)), answer_llm  # no tracer: tests stay offline
 
@@ -95,12 +96,11 @@ def test_product_question_retrieves_and_answers_with_citations():
     assert "content" not in turn.citations[0]
 
 
-@pytest.mark.parametrize(("r", "reply"), [("off_topic", OFF_TOPIC_REPLY), ("order", ORDER_REPLY)])
-def test_fixed_routes_skip_retrieval_and_llms(r, reply):
-    spy = Spy([route(r)])
-    agent, answer_llm = make_agent(spy, answers=[])
-    turn = agent.ask("t", "message")
-    assert turn.answer == reply and spy.searched == [] and turn.citations == []
+def test_off_topic_skips_retrieval_and_llms():
+    spy = Spy([route("off_topic")])
+    agent, _ = make_agent(spy, answers=[])
+    turn = agent.ask("t", "write a poem")
+    assert turn.answer == OFF_TOPIC_REPLY and spy.searched == [] and turn.citations == []
 
 
 def test_smalltalk_uses_the_chat_model_without_retrieval():
@@ -252,6 +252,7 @@ def test_small_model_gets_output_cap_and_reasoning_effort():
                         llm_small_reasoning_effort="none", llm_small_max_tokens=256)  # fmt: skip
     small = get_chat_model("small", settings)
     assert small.max_tokens == 256 and small.reasoning_effort == "none"
+    assert small.max_retries == 0, "fail fast so the backup model takes over"
     main = get_chat_model("main", Settings(_env_file=None, groq_api_key="k"))
     assert main.max_tokens is None and main.reasoning_effort is None
 

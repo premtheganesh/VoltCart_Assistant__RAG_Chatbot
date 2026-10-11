@@ -22,15 +22,17 @@ def show(turn, debug: bool) -> None:
         where = c["url"] or c["file"] + (f", page {c['page']}" if c["page"] else "")
         print(f"     [{c['n']}] {c['heading']}  ({where})")
     if debug:
-        gate = (
-            f"gate {turn.top_score:.3f} {'pass' if turn.passed_gate else 'FAIL'}"
-            if turn.top_score is not None
-            else "no retrieval"
-        )
+        if turn.top_score is None:
+            gate = "no retrieval"
+        elif turn.passed_gate is None:  # order answers: policy pages, no gate
+            gate = f"top score {turn.top_score:.3f}"
+        else:
+            gate = f"gate {turn.top_score:.3f} {'pass' if turn.passed_gate else 'FAIL'}"
         details = f"route={turn.route} | query={turn.search_query!r} | {gate}"
         print(f"     -- {details} | {turn.latency_ms} ms")
         for s in turn.sources:
-            print(f"        {s['n']}. [{s['score']:.3f}] {s['heading']}")
+            score = f"{s['score']:.3f}" if s["score"] is not None else " live"  # catalog tool
+            print(f"        {s['n']}. [{score}] {s['heading']}")
     print()
 
 
@@ -42,6 +44,9 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.WARNING)
+    # Tracing and retry notices must not interrupt the chat; real errors still surface
+    for noisy in ("opentelemetry", "langchain_cohere.utils"):
+        logging.getLogger(noisy).setLevel(logging.CRITICAL)
     settings = get_settings()
     thread = args.thread or f"cli-{uuid.uuid4().hex[:8]}"
     debug = args.debug

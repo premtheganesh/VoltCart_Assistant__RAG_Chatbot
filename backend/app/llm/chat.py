@@ -24,6 +24,9 @@ def get_chat_model(role: Role, settings: Settings | None = None) -> BaseChatMode
 
     kwargs: dict = {"temperature": 0, "max_retries": 3}  # retries back off on 429 rate limits
     if role == "small":
+        # Fail fast: the agent falls back to the main model (a daily-limit 429 can mean waiting
+        # minutes inside the client's retry loop)
+        kwargs["max_retries"] = 0
         kwargs["max_tokens"] = settings.llm_small_max_tokens
         if settings.llm_small_reasoning_effort:
             kwargs["reasoning_effort"] = settings.llm_small_reasoning_effort
