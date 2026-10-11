@@ -84,7 +84,7 @@ def _numbered_item(line: dict) -> str | None:
 
 
 def _inside(line: dict, box: tuple[float, float, float, float]) -> bool:
-    x0, top, x1, bottom = box
+    x0, top, _x1, bottom = box
     return line["top"] >= top - 1 and line["bottom"] <= bottom + 1 and line["x0"] >= x0 - 1
 
 
