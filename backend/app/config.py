@@ -33,7 +33,14 @@ class Settings(BaseSettings):
     embed_provider: str = "cohere"
     embed_model: str = "embed-multilingual-v3.0"
     embed_batch_size: int = 96  # Cohere's maximum texts per embed call
+    rerank_provider: str = "cohere"
     rerank_model: str = "rerank-v3.5"
+
+    # Retrieval
+    retrieval_candidates: int = 20  # taken from each of vector and keyword search
+    retrieval_top_k: int = 5  # chunks handed to the LLM
+    rrf_k: int = 60  # Reciprocal Rank Fusion constant (60 is the standard value)
+    min_relevance: float = 0.15  # relevance gate: below this rerank score, answer "I don't know"
 
     # Ingestion
     docs_dir: str = "sample_data/docs"
