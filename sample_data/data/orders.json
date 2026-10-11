@@ -1,0 +1,871 @@
+[
+  {
+    "order_number": "VC-10001",
+    "customer_email": "maya.patel@example.com",
+    "status": "delivered",
+    "placed_at": "2026-08-26T11:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Austin",
+    "shipping_state": "TX",
+    "items": [
+      {
+        "sku": "AU-PULSEANC",
+        "quantity": 1,
+        "unit_price_usd": "249.00"
+      }
+    ],
+    "subtotal_usd": "249.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "20.54",
+    "total_usd": "269.54",
+    "shipment": {
+      "carrier": "FedEx",
+      "tracking_number": "268697172873",
+      "shipped_at": "2026-08-27T11:00:00+00:00",
+      "estimated_delivery": "2026-09-02",
+      "delivered_at": "2026-09-02T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10002",
+    "customer_email": "james.oconnor@example.com",
+    "status": "delivered",
+    "placed_at": "2026-09-19T10:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Boston",
+    "shipping_state": "MA",
+    "items": [
+      {
+        "sku": "VB-PRO16",
+        "quantity": 1,
+        "unit_price_usd": "1799.00"
+      }
+    ],
+    "subtotal_usd": "1799.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "112.44",
+    "total_usd": "1911.44",
+    "shipment": {
+      "carrier": "FedEx",
+      "tracking_number": "481597082643",
+      "shipped_at": "2026-09-21T10:00:00+00:00",
+      "estimated_delivery": "2026-09-25",
+      "delivered_at": "2026-09-25T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10003",
+    "customer_email": "sofia.ramirez@example.com",
+    "status": "shipped",
+    "placed_at": "2026-10-06T15:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Phoenix",
+    "shipping_state": "AZ",
+    "items": [
+      {
+        "sku": "SH-HOMEHUBMINI",
+        "quantity": 2,
+        "unit_price_usd": "59.00"
+      },
+      {
+        "sku": "SH-VOLTVIEW",
+        "quantity": 1,
+        "unit_price_usd": "149.00"
+      },
+      {
+        "sku": "VB-GAMER15",
+        "quantity": 1,
+        "unit_price_usd": "1399.00"
+      }
+    ],
+    "subtotal_usd": "1666.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "139.94",
+    "total_usd": "1805.94",
+    "shipment": {
+      "carrier": "FedEx",
+      "tracking_number": "790757033266",
+      "shipped_at": "2026-10-07T15:00:00+00:00",
+      "estimated_delivery": "2026-10-13",
+      "delivered_at": null
+    }
+  },
+  {
+    "order_number": "VC-10004",
+    "customer_email": "liam.chen@example.com",
+    "status": "return_in_progress",
+    "placed_at": "2026-09-17T10:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Seattle",
+    "shipping_state": "WA",
+    "items": [
+      {
+        "sku": "AU-PULSEBUDS",
+        "quantity": 1,
+        "unit_price_usd": "179.00"
+      },
+      {
+        "sku": "VB-PRO16",
+        "quantity": 1,
+        "unit_price_usd": "1799.00"
+      }
+    ],
+    "subtotal_usd": "1978.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "202.75",
+    "total_usd": "2180.75",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000421147883146",
+      "shipped_at": "2026-09-18T10:00:00+00:00",
+      "estimated_delivery": "2026-09-24",
+      "delivered_at": "2026-09-24T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10005",
+    "customer_email": "ava.johnson@example.com",
+    "status": "delivered",
+    "placed_at": "2026-09-27T12:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Atlanta",
+    "shipping_state": "GA",
+    "items": [
+      {
+        "sku": "PH-NOVALITE",
+        "quantity": 1,
+        "unit_price_usd": "449.00"
+      }
+    ],
+    "subtotal_usd": "449.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "33.23",
+    "total_usd": "482.23",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000503014435550",
+      "shipped_at": "2026-09-28T12:00:00+00:00",
+      "estimated_delivery": "2026-10-02",
+      "delivered_at": "2026-10-02T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10006",
+    "customer_email": "noah.kim@example.com",
+    "status": "shipped",
+    "placed_at": "2026-10-07T10:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Denver",
+    "shipping_state": "CO",
+    "items": [
+      {
+        "sku": "AU-PULSEBUDS",
+        "quantity": 1,
+        "unit_price_usd": "179.00"
+      }
+    ],
+    "subtotal_usd": "179.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "13.96",
+    "total_usd": "192.96",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000851347210313",
+      "shipped_at": "2026-10-08T10:00:00+00:00",
+      "estimated_delivery": "2026-10-14",
+      "delivered_at": null
+    }
+  },
+  {
+    "order_number": "VC-10007",
+    "customer_email": "emma.wilson@example.com",
+    "status": "out_for_delivery",
+    "placed_at": "2026-10-08T06:00:00+00:00",
+    "shipping_method": "express",
+    "shipping_city": "Chicago",
+    "shipping_state": "IL",
+    "items": [
+      {
+        "sku": "AU-PULSEANC",
+        "quantity": 1,
+        "unit_price_usd": "249.00"
+      },
+      {
+        "sku": "SH-VOLTVIEW",
+        "quantity": 1,
+        "unit_price_usd": "149.00"
+      },
+      {
+        "sku": "AU-STRIDE",
+        "quantity": 1,
+        "unit_price_usd": "129.00"
+      }
+    ],
+    "subtotal_usd": "527.00",
+    "shipping_usd": "14.99",
+    "tax_usd": "54.02",
+    "total_usd": "596.01",
+    "shipment": {
+      "carrier": "FedEx",
+      "tracking_number": "397982492151",
+      "shipped_at": "2026-10-09T06:00:00+00:00",
+      "estimated_delivery": "2026-10-13",
+      "delivered_at": null
+    }
+  },
+  {
+    "order_number": "VC-10008",
+    "customer_email": "lucas.brown@example.com",
+    "status": "delivered",
+    "placed_at": "2026-08-04T07:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Honolulu",
+    "shipping_state": "HI",
+    "items": [
+      {
+        "sku": "PH-NOVAX",
+        "quantity": 1,
+        "unit_price_usd": "899.00"
+      }
+    ],
+    "subtotal_usd": "899.00",
+    "shipping_usd": "12.99",
+    "tax_usd": "40.46",
+    "total_usd": "952.45",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000984901132451",
+      "shipped_at": "2026-08-05T07:00:00+00:00",
+      "estimated_delivery": "2026-08-14",
+      "delivered_at": "2026-08-14T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10009",
+    "customer_email": "olivia.nguyen@example.com",
+    "status": "delivered",
+    "placed_at": "2026-09-12T09:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "San Jose",
+    "shipping_state": "CA",
+    "items": [
+      {
+        "sku": "VB-PRO16",
+        "quantity": 1,
+        "unit_price_usd": "1799.00"
+      }
+    ],
+    "subtotal_usd": "1799.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "168.75",
+    "total_usd": "1967.75",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000889742985454",
+      "shipped_at": "2026-09-14T09:00:00+00:00",
+      "estimated_delivery": "2026-09-18",
+      "delivered_at": "2026-09-18T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10010",
+    "customer_email": "ethan.davis@example.com",
+    "status": "delivered",
+    "placed_at": "2026-09-12T12:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Columbus",
+    "shipping_state": "OH",
+    "items": [
+      {
+        "sku": "SH-GLOWBULB",
+        "quantity": 1,
+        "unit_price_usd": "34.99"
+      },
+      {
+        "sku": "PH-NOVALITE",
+        "quantity": 1,
+        "unit_price_usd": "449.00"
+      },
+      {
+        "sku": "SH-HOMEHUBMINI",
+        "quantity": 2,
+        "unit_price_usd": "59.00"
+      }
+    ],
+    "subtotal_usd": "601.99",
+    "shipping_usd": "0.00",
+    "tax_usd": "48.16",
+    "total_usd": "650.15",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000690821577339",
+      "shipped_at": "2026-09-14T12:00:00+00:00",
+      "estimated_delivery": "2026-09-18",
+      "delivered_at": "2026-09-18T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10011",
+    "customer_email": "isabella.garcia@example.com",
+    "status": "shipped",
+    "placed_at": "2026-10-06T06:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Miami",
+    "shipping_state": "FL",
+    "items": [
+      {
+        "sku": "AC-GAN65",
+        "quantity": 2,
+        "unit_price_usd": "39.00"
+      },
+      {
+        "sku": "PH-NOVALITE",
+        "quantity": 1,
+        "unit_price_usd": "449.00"
+      }
+    ],
+    "subtotal_usd": "527.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "36.89",
+    "total_usd": "563.89",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000643354278056",
+      "shipped_at": "2026-10-07T06:00:00+00:00",
+      "estimated_delivery": "2026-10-13",
+      "delivered_at": null
+    }
+  },
+  {
+    "order_number": "VC-10012",
+    "customer_email": "henry.martin@example.com",
+    "status": "cancelled",
+    "placed_at": "2026-09-28T15:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Anchorage",
+    "shipping_state": "AK",
+    "items": [
+      {
+        "sku": "VB-ESS15",
+        "quantity": 1,
+        "unit_price_usd": "549.00"
+      }
+    ],
+    "subtotal_usd": "549.00",
+    "shipping_usd": "12.99",
+    "tax_usd": "0.00",
+    "total_usd": "561.99",
+    "shipment": null
+  },
+  {
+    "order_number": "VC-10013",
+    "customer_email": "maya.patel@example.com",
+    "status": "refunded",
+    "placed_at": "2026-08-16T13:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Austin",
+    "shipping_state": "TX",
+    "items": [
+      {
+        "sku": "SH-HOMEHUB",
+        "quantity": 1,
+        "unit_price_usd": "129.00"
+      },
+      {
+        "sku": "VB-PRO16",
+        "quantity": 1,
+        "unit_price_usd": "1799.00"
+      },
+      {
+        "sku": "PH-NOVALITE",
+        "quantity": 1,
+        "unit_price_usd": "449.00"
+      }
+    ],
+    "subtotal_usd": "2377.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "196.10",
+    "total_usd": "2573.10",
+    "shipment": {
+      "carrier": "FedEx",
+      "tracking_number": "377150435753",
+      "shipped_at": "2026-08-17T13:00:00+00:00",
+      "estimated_delivery": "2026-08-21",
+      "delivered_at": "2026-08-21T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10014",
+    "customer_email": "james.oconnor@example.com",
+    "status": "delivered",
+    "placed_at": "2026-08-01T07:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Boston",
+    "shipping_state": "MA",
+    "items": [
+      {
+        "sku": "VB-GAMER15",
+        "quantity": 1,
+        "unit_price_usd": "1399.00"
+      }
+    ],
+    "subtotal_usd": "1399.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "87.44",
+    "total_usd": "1486.44",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000395282771728",
+      "shipped_at": "2026-08-03T07:00:00+00:00",
+      "estimated_delivery": "2026-08-07",
+      "delivered_at": "2026-08-07T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10015",
+    "customer_email": "sofia.ramirez@example.com",
+    "status": "delivered",
+    "placed_at": "2026-08-14T10:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Phoenix",
+    "shipping_state": "AZ",
+    "items": [
+      {
+        "sku": "AU-ECHOLITE",
+        "quantity": 2,
+        "unit_price_usd": "79.00"
+      }
+    ],
+    "subtotal_usd": "158.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "13.27",
+    "total_usd": "171.27",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000894370590668",
+      "shipped_at": "2026-08-17T10:00:00+00:00",
+      "estimated_delivery": "2026-08-21",
+      "delivered_at": "2026-08-21T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10016",
+    "customer_email": "liam.chen@example.com",
+    "status": "return_in_progress",
+    "placed_at": "2026-09-15T11:00:00+00:00",
+    "shipping_method": "express",
+    "shipping_city": "Seattle",
+    "shipping_state": "WA",
+    "items": [
+      {
+        "sku": "AU-PULSEANC",
+        "quantity": 1,
+        "unit_price_usd": "249.00"
+      },
+      {
+        "sku": "SH-GLOWPLUG",
+        "quantity": 1,
+        "unit_price_usd": "24.99"
+      }
+    ],
+    "subtotal_usd": "273.99",
+    "shipping_usd": "14.99",
+    "tax_usd": "28.08",
+    "total_usd": "317.06",
+    "shipment": {
+      "carrier": "FedEx",
+      "tracking_number": "803694611575",
+      "shipped_at": "2026-09-16T11:00:00+00:00",
+      "estimated_delivery": "2026-09-18",
+      "delivered_at": "2026-09-18T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10017",
+    "customer_email": "ava.johnson@example.com",
+    "status": "processing",
+    "placed_at": "2026-10-10T13:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Atlanta",
+    "shipping_state": "GA",
+    "items": [
+      {
+        "sku": "AU-PULSEANC",
+        "quantity": 1,
+        "unit_price_usd": "249.00"
+      }
+    ],
+    "subtotal_usd": "249.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "18.43",
+    "total_usd": "267.43",
+    "shipment": null
+  },
+  {
+    "order_number": "VC-10018",
+    "customer_email": "noah.kim@example.com",
+    "status": "delivered",
+    "placed_at": "2026-08-14T07:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Denver",
+    "shipping_state": "CO",
+    "items": [
+      {
+        "sku": "AC-SLEEVE14",
+        "quantity": 2,
+        "unit_price_usd": "29.00"
+      }
+    ],
+    "subtotal_usd": "58.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "4.52",
+    "total_usd": "62.52",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000499127439409",
+      "shipped_at": "2026-08-17T07:00:00+00:00",
+      "estimated_delivery": "2026-08-21",
+      "delivered_at": "2026-08-21T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10019",
+    "customer_email": "emma.wilson@example.com",
+    "status": "delivered",
+    "placed_at": "2026-08-07T11:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Chicago",
+    "shipping_state": "IL",
+    "items": [
+      {
+        "sku": "VB-PRO14",
+        "quantity": 1,
+        "unit_price_usd": "1299.00"
+      }
+    ],
+    "subtotal_usd": "1299.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "133.15",
+    "total_usd": "1432.15",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000189966462838",
+      "shipped_at": "2026-08-10T11:00:00+00:00",
+      "estimated_delivery": "2026-08-14",
+      "delivered_at": "2026-08-14T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10020",
+    "customer_email": "lucas.brown@example.com",
+    "status": "processing",
+    "placed_at": "2026-10-10T08:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Honolulu",
+    "shipping_state": "HI",
+    "items": [
+      {
+        "sku": "SH-VOLTVIEW",
+        "quantity": 1,
+        "unit_price_usd": "149.00"
+      }
+    ],
+    "subtotal_usd": "149.00",
+    "shipping_usd": "12.99",
+    "tax_usd": "6.71",
+    "total_usd": "168.70",
+    "shipment": null
+  },
+  {
+    "order_number": "VC-10021",
+    "customer_email": "olivia.nguyen@example.com",
+    "status": "delivered",
+    "placed_at": "2026-08-14T13:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "San Jose",
+    "shipping_state": "CA",
+    "items": [
+      {
+        "sku": "SH-GLOWBULB",
+        "quantity": 1,
+        "unit_price_usd": "34.99"
+      }
+    ],
+    "subtotal_usd": "34.99",
+    "shipping_usd": "5.99",
+    "tax_usd": "3.28",
+    "total_usd": "44.26",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000931244947195",
+      "shipped_at": "2026-08-17T13:00:00+00:00",
+      "estimated_delivery": "2026-08-21",
+      "delivered_at": "2026-08-21T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10022",
+    "customer_email": "ethan.davis@example.com",
+    "status": "refunded",
+    "placed_at": "2026-08-13T12:00:00+00:00",
+    "shipping_method": "express",
+    "shipping_city": "Columbus",
+    "shipping_state": "OH",
+    "items": [
+      {
+        "sku": "AU-ECHOLITE",
+        "quantity": 2,
+        "unit_price_usd": "79.00"
+      },
+      {
+        "sku": "PH-NOVALITE",
+        "quantity": 1,
+        "unit_price_usd": "449.00"
+      },
+      {
+        "sku": "PH-NOVAXPRO",
+        "quantity": 1,
+        "unit_price_usd": "1199.00"
+      }
+    ],
+    "subtotal_usd": "1806.00",
+    "shipping_usd": "14.99",
+    "tax_usd": "144.48",
+    "total_usd": "1965.47",
+    "shipment": {
+      "carrier": "FedEx",
+      "tracking_number": "371102648727",
+      "shipped_at": "2026-08-14T12:00:00+00:00",
+      "estimated_delivery": "2026-08-18",
+      "delivered_at": "2026-08-18T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10023",
+    "customer_email": "isabella.garcia@example.com",
+    "status": "out_for_delivery",
+    "placed_at": "2026-10-08T14:00:00+00:00",
+    "shipping_method": "express",
+    "shipping_city": "Miami",
+    "shipping_state": "FL",
+    "items": [
+      {
+        "sku": "VB-AIR14",
+        "quantity": 1,
+        "unit_price_usd": "899.00"
+      }
+    ],
+    "subtotal_usd": "899.00",
+    "shipping_usd": "14.99",
+    "tax_usd": "62.93",
+    "total_usd": "976.92",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000105240793782",
+      "shipped_at": "2026-10-09T14:00:00+00:00",
+      "estimated_delivery": "2026-10-13",
+      "delivered_at": null
+    }
+  },
+  {
+    "order_number": "VC-10024",
+    "customer_email": "henry.martin@example.com",
+    "status": "cancelled",
+    "placed_at": "2026-09-28T15:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Anchorage",
+    "shipping_state": "AK",
+    "items": [
+      {
+        "sku": "VB-PRO16",
+        "quantity": 1,
+        "unit_price_usd": "1799.00"
+      }
+    ],
+    "subtotal_usd": "1799.00",
+    "shipping_usd": "12.99",
+    "tax_usd": "0.00",
+    "total_usd": "1811.99",
+    "shipment": null
+  },
+  {
+    "order_number": "VC-10025",
+    "customer_email": "maya.patel@example.com",
+    "status": "shipped",
+    "placed_at": "2026-10-06T14:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Austin",
+    "shipping_state": "TX",
+    "items": [
+      {
+        "sku": "AU-STRIDE",
+        "quantity": 1,
+        "unit_price_usd": "129.00"
+      },
+      {
+        "sku": "AU-STRIDEOPEN",
+        "quantity": 1,
+        "unit_price_usd": "149.00"
+      }
+    ],
+    "subtotal_usd": "278.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "22.94",
+    "total_usd": "300.94",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000244049912883",
+      "shipped_at": "2026-10-07T14:00:00+00:00",
+      "estimated_delivery": "2026-10-13",
+      "delivered_at": null
+    }
+  },
+  {
+    "order_number": "VC-10026",
+    "customer_email": "henry.martin@example.com",
+    "status": "shipped",
+    "placed_at": "2026-10-05T12:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Anchorage",
+    "shipping_state": "AK",
+    "items": [
+      {
+        "sku": "SH-HOMEHUB",
+        "quantity": 1,
+        "unit_price_usd": "129.00"
+      },
+      {
+        "sku": "AU-PULSEBUDS",
+        "quantity": 1,
+        "unit_price_usd": "179.00"
+      }
+    ],
+    "subtotal_usd": "308.00",
+    "shipping_usd": "12.99",
+    "tax_usd": "0.00",
+    "total_usd": "320.99",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000821970820395",
+      "shipped_at": "2026-10-06T12:00:00+00:00",
+      "estimated_delivery": "2026-10-15",
+      "delivered_at": null
+    }
+  },
+  {
+    "order_number": "VC-10027",
+    "customer_email": "emma.wilson@example.com",
+    "status": "delivered",
+    "placed_at": "2026-09-10T09:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Chicago",
+    "shipping_state": "IL",
+    "items": [
+      {
+        "sku": "SH-HOMEHUBMINI",
+        "quantity": 1,
+        "unit_price_usd": "59.00"
+      },
+      {
+        "sku": "VB-PRO14",
+        "quantity": 1,
+        "unit_price_usd": "1299.00"
+      }
+    ],
+    "subtotal_usd": "1358.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "139.20",
+    "total_usd": "1497.20",
+    "shipment": {
+      "carrier": "USPS",
+      "tracking_number": "9400000000977630621959",
+      "shipped_at": "2026-09-11T09:00:00+00:00",
+      "estimated_delivery": "2026-09-17",
+      "delivered_at": "2026-09-17T18:00:00+00:00"
+    }
+  },
+  {
+    "order_number": "VC-10028",
+    "customer_email": "james.oconnor@example.com",
+    "status": "processing",
+    "placed_at": "2026-10-10T12:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Boston",
+    "shipping_state": "MA",
+    "items": [
+      {
+        "sku": "SH-VOLTVIEW",
+        "quantity": 1,
+        "unit_price_usd": "149.00"
+      }
+    ],
+    "subtotal_usd": "149.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "9.31",
+    "total_usd": "158.31",
+    "shipment": null
+  },
+  {
+    "order_number": "VC-10029",
+    "customer_email": "emma.wilson@example.com",
+    "status": "processing",
+    "placed_at": "2026-10-10T11:00:00+00:00",
+    "shipping_method": "standard",
+    "shipping_city": "Chicago",
+    "shipping_state": "IL",
+    "items": [
+      {
+        "sku": "AU-STRIDE",
+        "quantity": 1,
+        "unit_price_usd": "129.00"
+      },
+      {
+        "sku": "VB-PRO16",
+        "quantity": 1,
+        "unit_price_usd": "1799.00"
+      }
+    ],
+    "subtotal_usd": "1928.00",
+    "shipping_usd": "0.00",
+    "tax_usd": "197.62",
+    "total_usd": "2125.62",
+    "shipment": null
+  },
+  {
+    "order_number": "VC-10030",
+    "customer_email": "olivia.nguyen@example.com",
+    "status": "delivered",
+    "placed_at": "2026-09-26T15:00:00+00:00",
+    "shipping_method": "next_day",
+    "shipping_city": "San Jose",
+    "shipping_state": "CA",
+    "items": [
+      {
+        "sku": "SH-VOLTVIEW",
+        "quantity": 1,
+        "unit_price_usd": "149.00"
+      },
+      {
+        "sku": "VB-AIR14",
+        "quantity": 1,
+        "unit_price_usd": "899.00"
+      },
+      {
+        "sku": "VB-PRO16",
+        "quantity": 1,
+        "unit_price_usd": "1799.00"
+      }
+    ],
+    "subtotal_usd": "2847.00",
+    "shipping_usd": "24.99",
+    "tax_usd": "267.05",
+    "total_usd": "3139.04",
+    "shipment": {
+      "carrier": "UPS",
+      "tracking_number": "1Z0000547390899554",
+      "shipped_at": "2026-09-28T15:00:00+00:00",
+      "estimated_delivery": "2026-09-29",
+      "delivered_at": "2026-09-29T18:00:00+00:00"
+    }
+  }
+]

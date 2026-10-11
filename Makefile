@@ -2,10 +2,10 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell api test test-all lint format
+.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs api test test-all lint format
 
 help: ## List available commands
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install backend dependencies into backend/.venv
 	cd $(BACKEND) && uv sync
@@ -24,6 +24,21 @@ db-logs: ## Follow Postgres logs
 
 db-shell: ## Open a psql shell inside the container
 	docker compose exec postgres sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+
+migrate: ## Apply database migrations (create/update tables)
+	$(UV) alembic upgrade head
+
+migration: ## Create a new migration from model changes: make migration m="describe change"
+	$(UV) alembic revision --autogenerate -m "$(m)"
+
+seed: ## Load sample products, customers and orders into the database (replaces existing)
+	$(UV) python -m scripts.seed
+
+generate-orders: ## Regenerate sample_data/data/orders.json (deterministic)
+	$(UV) python -m scripts.generate_orders
+
+render-docs: ## Render Markdown sources into PDF / DOCX / HTML documents
+	$(UV) python -m scripts.render_docs
 
 api: ## Run the API with auto-reload on http://localhost:8000
 	$(UV) uvicorn app.main:app --reload --port 8000

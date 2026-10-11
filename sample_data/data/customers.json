@@ -1,0 +1,14 @@
+[
+  {"email": "maya.patel@example.com", "first_name": "Maya", "last_name": "Patel", "city": "Austin", "state": "TX"},
+  {"email": "james.oconnor@example.com", "first_name": "James", "last_name": "O'Connor", "city": "Boston", "state": "MA"},
+  {"email": "sofia.ramirez@example.com", "first_name": "Sofia", "last_name": "Ramirez", "city": "Phoenix", "state": "AZ"},
+  {"email": "liam.chen@example.com", "first_name": "Liam", "last_name": "Chen", "city": "Seattle", "state": "WA"},
+  {"email": "ava.johnson@example.com", "first_name": "Ava", "last_name": "Johnson", "city": "Atlanta", "state": "GA"},
+  {"email": "noah.kim@example.com", "first_name": "Noah", "last_name": "Kim", "city": "Denver", "state": "CO"},
+  {"email": "emma.wilson@example.com", "first_name": "Emma", "last_name": "Wilson", "city": "Chicago", "state": "IL"},
+  {"email": "lucas.brown@example.com", "first_name": "Lucas", "last_name": "Brown", "city": "Honolulu", "state": "HI"},
+  {"email": "olivia.nguyen@example.com", "first_name": "Olivia", "last_name": "Nguyen", "city": "San Jose", "state": "CA"},
+  {"email": "ethan.davis@example.com", "first_name": "Ethan", "last_name": "Davis", "city": "Columbus", "state": "OH"},
+  {"email": "isabella.garcia@example.com", "first_name": "Isabella", "last_name": "Garcia", "city": "Miami", "state": "FL"},
+  {"email": "henry.martin@example.com", "first_name": "Henry", "last_name": "Martin", "city": "Anchorage", "state": "AK"}
+]

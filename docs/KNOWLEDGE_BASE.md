@@ -53,7 +53,7 @@ The knowledge base deliberately mixes **formats** (PDF, DOCX, HTML) and **conten
 
 | File | Purpose |
 |---|---|
-| `returns-and-refunds-v2.html` | An updated policy (45-day window) to test that re-indexing replaces old content |
+| `sample_data/test_only/returns-and-refunds.html` | Updated policy (45-day window, no restocking fee), same file name as the live one, to test that re-indexing replaces old content |
 | Off-topic / injection prompts | Live in `evals/datasets/guardrails.jsonl`, not in the knowledge base |
 
 **Total:** 21 knowledge documents + 4 tables. Small enough to inspect by hand, rich enough to test tables, multi-format parsing, policies, product recommendations and order lookups.
