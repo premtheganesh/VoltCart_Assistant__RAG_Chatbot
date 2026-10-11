@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval api test test-all lint format
+.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing chat api test test-all lint format
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -51,6 +51,12 @@ ask: ## Show retrieval results for a question: make ask q="can I swim with the s
 
 eval-retrieval: ## Score retrieval on the golden questions (writes evals/reports/retrieval.md)
 	$(UV) python -m scripts.eval_retrieval $(args)
+
+eval-routing: ## Score the router on the golden questions (writes evals/reports/routing.md)
+	$(UV) python -m scripts.eval_routing $(args)
+
+chat: ## Chat with the agent in the terminal: make chat [args="--debug" | args="--thread ID"]
+	$(UV) python -m scripts.chat $(args)
 
 api: ## Run the API with auto-reload on http://localhost:8000
 	$(UV) uvicorn app.main:app --reload --port 8000

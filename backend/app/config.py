@@ -25,8 +25,13 @@ class Settings(BaseSettings):
 
     # LLM
     groq_api_key: SecretStr | None = None
-    llm_model_main: str = "groq:llama-3.3-70b-versatile"
-    llm_model_small: str = "groq:llama-3.1-8b-instant"
+    # "provider:model". Main writes answers; small routes and rewrites (fast, cheap)
+    llm_model_main: str = "groq:openai/gpt-oss-120b"
+    llm_model_small: str = "groq:openai/gpt-oss-20b"
+    # Router/rewriter output is a tiny JSON object: cap it, and limit hidden "thinking" tokens
+    # (model-specific values: gpt-oss "low"/"medium"/"high", qwen "none"/"default")
+    llm_small_max_tokens: int = 512
+    llm_small_reasoning_effort: str | None = None
 
     # Embeddings + rerank
     cohere_api_key: SecretStr | None = None
@@ -52,9 +57,21 @@ class Settings(BaseSettings):
     langfuse_secret_key: SecretStr | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
 
+    # Agent
+    history_messages: int = 10  # earlier messages the LLM sees (all are stored)
+
     # App
     app_env: str = "dev"
     log_level: str = "INFO"
+
+    @property
+    def langfuse_enabled(self) -> bool:
+        return bool(self.langfuse_public_key and self.langfuse_secret_key)
+
+    @property
+    def psycopg_url(self) -> str:
+        """Plain libpq URL (no SQLAlchemy driver prefix), for LangGraph's checkpointer."""
+        return self.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
 
     @property
     def database_url(self) -> str:
