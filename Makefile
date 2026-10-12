@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails chat api web-install web web-test test test-all lint format
+.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails chat api web-install web web-test widget-demo test test-all lint format
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -69,6 +69,10 @@ web-install: ## Install the chat UI's packages (frontend/node_modules)
 
 web: ## Run the chat UI with hot reload on http://localhost:3000 (needs `make api` running)
 	cd frontend && npm run dev
+
+widget-demo: ## Serve a demo store page that embeds the chat widget on http://127.0.0.1:8080
+	@echo "Open http://127.0.0.1:8080 (needs make api and make web running)"
+	python3 -m http.server 8080 --bind 127.0.0.1 -d sample_data/widget-demo
 
 web-test: ## Type-check and unit-test the chat UI
 	cd frontend && npm run typecheck && npm test

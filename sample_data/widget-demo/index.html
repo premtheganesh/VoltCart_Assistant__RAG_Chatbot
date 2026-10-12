@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VoltCart — Laptops, audio and smart home</title>
+  <link rel="icon" href="data:," />
+  <style>
+    /* A stand-in for the real store's website. It runs on a different origin (port 8080) than
+       the chat (port 3000), like a real store embedding the widget. */
+    body { margin: 0; font-family: Georgia, serif; background: #fff; color: #222; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 18px 32px;
+             border-bottom: 1px solid #eee; }
+    nav a { margin-left: 20px; color: #222; text-decoration: none; }
+    .hero { padding: 80px 32px; max-width: 760px; }
+    .hero h1 { font-size: 48px; margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;
+            padding: 0 32px 80px; }
+    .tile { border: 1px solid #eee; border-radius: 8px; padding: 20px; }
+    .note { margin: 0 32px 40px; padding: 12px 16px; background: #fffbe6; border: 1px solid #f0e2a0;
+            font-family: system-ui, sans-serif; font-size: 14px; }
+
+    /* Deliberately hostile styles: if they reached the widget, it would look broken.
+       The widget lives in a Shadow DOM and an iframe, so they can't. */
+    button { background: hotpink !important; border-radius: 0 !important; }
+    iframe { border: 5px dashed red !important; }
+    * { letter-spacing: 0.02em; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>VoltCart</strong>
+    <nav><a href="#">Laptops</a><a href="#">Audio</a><a href="#">Phones</a><a href="#">Smart home</a></nav>
+  </header>
+  <section class="hero">
+    <h1>Gear that just works.</h1>
+    <p>Laptops, headphones, phones and smart-home devices, with free 30-day returns.</p>
+    <button type="button">Shop laptops</button>
+  </section>
+  <p class="note">
+    Demo page for the chat widget. Click the round button in the bottom-right corner. This page sets
+    <code>button {background: hotpink}</code> and <code>iframe {border: red}</code>, yet the widget
+    looks right: its button is in a Shadow DOM and the chat is in an iframe.
+  </p>
+  <div class="grid">
+    <div class="tile"><h3>VoltBook Pro 16</h3><p>For creators and video editing.</p></div>
+    <div class="tile"><h3>Pulse ANC</h3><p>Noise cancelling for travel.</p></div>
+    <div class="tile"><h3>Stride Sport</h3><p>Earbuds that stay put on a run.</p></div>
+    <div class="tile"><h3>HomeHub</h3><p>The smart speaker for your home.</p></div>
+  </div>
+
+  <!-- The only line a store needs to add: -->
+  <script src="http://localhost:3000/widget.js" async></script>
+</body>
+</html>

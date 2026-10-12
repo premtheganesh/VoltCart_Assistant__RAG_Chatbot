@@ -4,7 +4,7 @@ A production-style **RAG customer-support chatbot** for VoltCart, a fictional el
 
 Everything runs on **free tiers** (Groq for the language models, Cohere for embeddings and reranking), and every provider can be swapped in `.env`.
 
-> **Status:** Phases 1–9 of 12 are done: knowledge base, retrieval, agent, tools, guardrails, API and chat UI. Next up: the embeddable widget and admin panel, full evals, then hardening and deployment. See [docs/PHASES.md](docs/PHASES.md).
+> **Status:** Phases 1–10 of 12 are done: knowledge base, retrieval, agent, tools, guardrails, API, chat UI, embeddable widget and admin panel. Next up: full evals, then hardening and deployment. See [docs/PHASES.md](docs/PHASES.md).
 
 ## What it does
 
@@ -17,7 +17,8 @@ Everything runs on **free tiers** (Groq for the language models, Cohere for embe
   - a safety model blocks prompt injection, jailbreaks and harmful requests
   - prompt rules stop fake "system updates"
   - optional grounding and output checks
-- **Admin API:** upload or delete documents, re-index, ticket inbox, conversations, 👎 answers.
+- **Embeddable widget:** one `<script>` tag puts the chat on any website (an iframe with a Shadow DOM button, isolated from the host page).
+- **Admin panel** (`/admin`): ticket inbox, conversations, 👎 feedback, and documents (upload, delete, re-index).
 
 ## Architecture
 
@@ -61,7 +62,8 @@ make ingest                 # embed the 21 sample documents + catalog (~3 Cohere
 make web-install            # UI packages
 
 make api                    # terminal 1: API on http://localhost:8000 (Swagger UI at /docs)
-make web                    # terminal 2: chat UI on http://localhost:3000
+make web                    # terminal 2: chat UI on http://localhost:3000 (admin at /admin)
+make widget-demo            # optional: a demo store page embedding the widget, http://127.0.0.1:8080
 ```
 
 Run `make` commands from the project root. Run `uv` commands inside `backend/`. `make help` lists every command.
@@ -103,7 +105,7 @@ backend/
     db/           models, sessions;  alembic/ migrations
   scripts/        ingest, chat, ask, evals, seed
   tests/          ~1,575 tests (unit + database)
-frontend/         Next.js chat UI (app/, components/, lib/ with unit tests)
+frontend/         Next.js: chat (/), widget (/widget + public/widget.js), admin (/admin)
 sample_data/      VoltCart documents, catalog, customers, orders
 evals/            golden + attack datasets, reports
 docs/             PRD, phases, knowledge base, build log per phase
