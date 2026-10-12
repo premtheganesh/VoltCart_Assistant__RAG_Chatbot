@@ -1,0 +1,8 @@
+{
+  "eval": "retrieval",
+  "run_at": "2026-10-12T19:13:58+00:00",
+  "mode": "hybrid_rerank",
+  "questions": 87,
+  "hit_at_5": 0.9885,
+  "mrr_at_5": 0.9349
+}

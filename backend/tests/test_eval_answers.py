@@ -123,3 +123,21 @@ def test_synthetic_drafts_that_repeat_a_golden_question_are_dropped():
     existing = ["Can I swim with the Stride Sport Earbuds?"]
     assert is_duplicate("can i swim with the stride sport earbuds", existing)
     assert not is_duplicate("How long do the Stride earbuds take to charge?", existing)
+
+
+def test_daily_limits_stop_the_eval_instead_of_retrying_for_hours():
+    from scripts.eval_answers import with_retries
+    from scripts.eval_common import DailyLimitReached, is_daily_limit
+
+    tpd = RuntimeError("429 Rate limit reached for model `qwen/x` on tokens per day (TPD)")
+    tpm = RuntimeError("429 Rate limit reached for model `qwen/x` on tokens per minute (TPM)")
+    assert is_daily_limit(tpd) and not is_daily_limit(tpm)
+    calls = []
+
+    def fail():
+        calls.append(1)
+        raise tpd
+
+    with pytest.raises(DailyLimitReached, match="qwen/x"):
+        with_retries(fail, wait_s=0)
+    assert len(calls) == 1, "no waiting and retrying on a daily quota"

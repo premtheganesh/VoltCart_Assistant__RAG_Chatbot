@@ -13,6 +13,7 @@ import hashlib
 import json
 import sqlite3
 import sys
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -82,15 +83,21 @@ class DiskCache:
 
 
 class CachedReranker:
-    def __init__(self, inner: Reranker, cache: DiskCache):
+    def __init__(self, inner: Reranker, cache: DiskCache, min_interval_s: float = 0.0):
+        """min_interval_s: space out real API calls (Cohere's trial allows ~10 reranks/minute;
+        going faster trips the reranker's circuit breaker and would spoil the eval)."""
         self.inner, self.cache, self.model = inner, cache, inner.model
         self.calls = 0
+        self.min_interval_s, self._last = min_interval_s, 0.0
 
     def rerank(self, query: str, texts: list[str]) -> list[tuple[int, float]]:
         key = self.cache.key("rerank", self.model, query, *texts)
         if (hit := self.cache.get(key)) is not None:
             return [tuple(x) for x in hit]
         self.calls += 1
+        if (wait := self._last + self.min_interval_s - time.monotonic()) > 0:
+            time.sleep(wait)
+        self._last = time.monotonic()
         result = self.inner.rerank(query, texts)
         self.cache.set(key, result)
         return result
@@ -163,7 +170,9 @@ def main() -> None:
     vectors, embedded = cached_query_vectors(embedder, model, questions, cache)
     vector_of = dict(zip(questions, vectors, strict=True))
     reranker = (
-        CachedReranker(get_reranker(settings), cache) if "hybrid_rerank" in args.modes else None
+        CachedReranker(get_reranker(settings), cache, min_interval_s=6.5)
+        if "hybrid_rerank" in args.modes
+        else None
     )
 
     results: dict[str, list[Row]] = {}
@@ -178,6 +187,11 @@ def main() -> None:
                 row = Row(item, retriever.retrieve(q, mode, top_k=K, query_vector=vector_of[q]))
                 (results[mode] if item in answerable else gate_rows).append(row)
     print()
+    degraded = [r.item["id"] for r in results.get("hybrid_rerank", []) + gate_rows
+                if r.result.top_score is None]  # fmt: skip
+    if degraded:  # the reranker failed and search order was used: not a real measurement
+        sys.exit(f"Reranker unavailable for {len(degraded)} questions {degraded[:10]}: re-run "
+                 "(successful reranks are cached).")  # fmt: skip
 
     lines = render_report(results, gate_rows, settings, answerable, no_answer)
     REPORT.parent.mkdir(parents=True, exist_ok=True)

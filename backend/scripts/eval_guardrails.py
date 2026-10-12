@@ -21,7 +21,7 @@ from app.guardrails import safety
 from app.guardrails.pii import redact
 from app.guardrails.safety import INPUT_POLICY, UNAVAILABLE, make_checker
 from app.llm.chat import get_chat_model
-from scripts.eval_common import write_metrics
+from scripts.eval_common import stop_if_daily_limit, write_metrics
 from scripts.eval_retrieval import DiskCache
 
 DATASET = PROJECT_ROOT / "evals" / "datasets" / "guardrails.jsonl"
@@ -93,7 +93,8 @@ def main() -> None:
     check = make_checker(get_chat_model("safety", settings), INPUT_POLICY)
 
     results, calls, outages = {}, 0, []
-    context = open_agent(settings, persist=False) if args.level == "full" else None
+    # strict: if the router model fails, raise instead of quietly routing by keywords
+    context = open_agent(settings, persist=False, strict=True) if args.level == "full" else None
     agent = context.__enter__() if context else None
     try:
         for n, case in enumerate(cases, start=1):
@@ -101,7 +102,11 @@ def main() -> None:
             key = cache.key("guardrails", args.level, tag, case["input"])
             if (hit := cache.get(key)) is None:
                 calls += 1
-                hit = run_case(case, args.level, check, agent)
+                try:
+                    hit = run_case(case, args.level, check, agent)
+                except Exception as exc:  # a model outage: not a guardrail verdict
+                    stop_if_daily_limit(exc)
+                    hit = {"reason": UNAVAILABLE}
                 if is_outage(hit):
                     outages.append(case["id"])
                     continue

@@ -36,7 +36,8 @@ from app.guardrails import safety
 from app.guardrails.safety import UNAVAILABLE
 from app.llm.chat import get_chat_model
 from app.observability import flush_traces, record_score
-from scripts.eval_common import write_metrics
+from app.retrieval.reranker import CohereReranker
+from scripts.eval_common import DailyLimitReached, stop_if_daily_limit, write_metrics
 from scripts.eval_retrieval import GOLDEN, DiskCache
 
 SAMPLE = PROJECT_ROOT / "evals" / "datasets" / "answer_sample.txt"
@@ -71,12 +72,15 @@ def expected_behavior(item: dict) -> str:
 JUDGE_PROMPT = """You grade one reply from VoltCart's customer-support chatbot. Be strict and \
 literal, and judge only what the reply says.
 
-1. behavior_ok: does the reply do what EXPECTED BEHAVIOR describes?
+1. behavior_ok: is the reply the right KIND of response for EXPECTED BEHAVIOR (answering vs \
+asking for verification vs admitting it doesn't know vs declining vs handing off)? A real \
+answer that is incomplete is still the right kind: judge completeness under correctness only.
 2. correctness: if the expected behavior is "answer": "correct" = gives the reference answer's \
-key facts and nothing contradicts it (different wording and extra correct details are fine); \
-"partial" = partly right (misses a key fact, or a minor error); "wrong" = wrong, contradicts the \
-reference, or doesn't answer. For any other expected behavior: "correct" if behavior_ok, else \
-"wrong".
+key facts and nothing contradicts it (different wording, extra correct details, and reasonable \
+alternatives next to the recommended product are fine); "partial" = mostly right but misses a \
+key fact (such as a price) or has a minor error; "wrong" = wrong numbers or facts, contradicts \
+the reference, or doesn't answer. For any other expected behavior: "correct" if behavior_ok, \
+else "wrong".
 3. claims: every factual claim the reply makes about products, prices, specs, policies, orders, \
 dates or steps (not greetings, offers to help, or questions back). supported = true only if the \
 SOURCES state it or it follows directly from them (rewording, simple arithmetic). If there are \
@@ -164,6 +168,7 @@ def with_retries(fn, attempts: int = 4, wait_s: float = 30):
         try:
             return fn()
         except Exception as exc:
+            stop_if_daily_limit(exc)  # waiting minutes can't fix a daily quota
             print(f"    attempt {attempt} failed: {str(exc)[:140]}", flush=True)
             if attempt < attempts:
                 time.sleep(wait_s * attempt)
@@ -201,6 +206,8 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = get_settings()
+    # A rate-limit blip shouldn't switch reranking off for 5 minutes mid-eval: retry sooner
+    CohereReranker.COOLDOWN_S = 20
     cases = load_cases(args)
     cache, tag = DiskCache(CACHE), version(settings)
     # strict: the provider enforces the schema (without it, the judge sometimes returned the
@@ -211,40 +218,50 @@ def main() -> None:
 
     results, failed, agent_calls, judge_calls = {}, [], 0, 0
     started = time.perf_counter()
+    stopped = None
     with open_agent(settings, persist=False, strict=True) as agent:
         for n, item in enumerate(cases, start=1):
+            if stopped:  # a daily quota ran out: the rest can't run today
+                failed.append(item["id"])
+                continue
             print(f"[{n}/{len(cases)}] {item['id']} {item['category']}: {item['question'][:60]}",
                   flush=True)  # fmt: skip
-            key = cache.key("answer-turn", tag, json.dumps(item, sort_keys=True))
-            if (result := cache.get(key)) is None:
-                agent_calls += 1
-                result = with_retries(lambda i=item: run_case(agent, i, uuid.uuid4().hex))
-                if result is None:
-                    failed.append(item["id"])
-                    continue
-                cache.set(key, result)
+            try:
+                key = cache.key("answer-turn", tag, json.dumps(item, sort_keys=True))
+                if (result := cache.get(key)) is None:
+                    agent_calls += 1
+                    result = with_retries(lambda i=item: run_case(agent, i, uuid.uuid4().hex))
+                    if result is None:
+                        failed.append(item["id"])
+                        continue
+                    cache.set(key, result)
 
-            prompt = judge_input(item, result)
-            gkey = cache.key("answer-grade", settings.judge_model, JUDGE_PROMPT, prompt)
-            if (grade := cache.get(gkey)) is None:
-                judge_calls += 1
-                verdict = with_retries(lambda p=prompt: judge.invoke(
-                    [SystemMessage(JUDGE_PROMPT), HumanMessage(p)]))  # fmt: skip
-                if verdict is None:
-                    failed.append(item["id"])
-                    continue
-                grade = {**verdict.model_dump(), "correctness": SCORE[verdict.correctness]}
-                cache.set(gkey, grade)
-                claims = grade["claims"] if result["sources"] else []
-                record_score(result["turn_id"], "eval_correctness", grade["correctness"])
-                if claims:
-                    record_score(result["turn_id"], "eval_faithfulness",
-                                 sum(c["supported"] for c in claims) / len(claims))  # fmt: skip
-            results[item["id"]] = (item, result, grade)
-            print(f"    -> {'ok ' if grade['behavior_ok'] else 'BAD'} correctness "
-                  f"{grade['correctness']} · {grade['reason'][:90]}", flush=True)  # fmt: skip
+                prompt = judge_input(item, result)
+                gkey = cache.key("answer-grade", settings.judge_model, JUDGE_PROMPT, prompt)
+                if (grade := cache.get(gkey)) is None:
+                    judge_calls += 1
+                    verdict = with_retries(lambda p=prompt: judge.invoke(
+                        [SystemMessage(JUDGE_PROMPT), HumanMessage(p)]))  # fmt: skip
+                    if verdict is None:
+                        failed.append(item["id"])
+                        continue
+                    grade = {**verdict.model_dump(), "correctness": SCORE[verdict.correctness]}
+                    cache.set(gkey, grade)
+                    claims = grade["claims"] if result["sources"] else []
+                    record_score(result["turn_id"], "eval_correctness", grade["correctness"])
+                    if claims:
+                        record_score(result["turn_id"], "eval_faithfulness",
+                                     sum(c["supported"] for c in claims) / len(claims))  # fmt: skip
+                results[item["id"]] = (item, result, grade)
+                print(f"    -> {'ok ' if grade['behavior_ok'] else 'BAD'} correctness "
+                      f"{grade['correctness']} · {grade['reason'][:90]}", flush=True)  # fmt: skip
+            except DailyLimitReached as exc:
+                stopped = str(exc)
+                failed.append(item["id"])
     flush_traces()
 
+    if stopped:
+        print(f"\nSTOPPED EARLY: {stopped}")
     if not results:
         sys.exit("Nothing was graded.")
     report = summarize(results)
@@ -335,8 +352,10 @@ def render(results: dict, m: dict, settings) -> list[str]:
               "| Id | Question | Expected | Grade | Judge's reason | Unsupported claims |",
               "| --- | --- | --- | --- | --- | --- |"]  # fmt: skip
     cell = lambda s: str(s).replace("|", "\\|").replace("\n", " ")  # noqa: E731
-    for item, _, g in results.values():
-        unsupported = [c["claim"] for c in g["claims"] if not c["supported"]]
+    for item, r, g in results.values():
+        # Claims count only for replies built on retrieved sources (as in the faithfulness score)
+        judged = r["sources"] and item["category"] != "order"
+        unsupported = [c["claim"] for c in g["claims"] if not c["supported"]] if judged else []
         trap = m["trap_hits"].get(item["id"])
         if g["correctness"] < 1 or not g["behavior_ok"] or unsupported or trap:
             note = f"TRAP {trap}; " if trap else ""

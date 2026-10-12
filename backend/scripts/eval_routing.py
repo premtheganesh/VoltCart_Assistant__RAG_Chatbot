@@ -20,7 +20,7 @@ from app.graph.agent import make_analyzer
 from app.graph.prompts import ROUTER_PROMPT
 from app.graph.state import Analysis
 from app.llm.chat import get_chat_model
-from scripts.eval_common import write_metrics
+from scripts.eval_common import DailyLimitReached, stop_if_daily_limit, write_metrics
 from scripts.eval_retrieval import GOLDEN, DiskCache
 
 CACHE = PROJECT_ROOT / "evals" / ".cache" / "routing.sqlite"
@@ -40,7 +40,8 @@ def route_with_retry(analyze, msgs, attempts: int = 4, wait_s: float = 30) -> di
     for attempt in range(1, attempts + 1):
         try:
             return analyze(msgs).model_dump()
-        except Exception:
+        except Exception as exc:
+            stop_if_daily_limit(exc)  # waiting can't fix a daily quota: stop, results are cached
             if attempt < attempts:
                 time.sleep(wait_s)
     return None
@@ -57,6 +58,7 @@ def main() -> None:
     cache = DiskCache(CACHE)
 
     rows, calls, errors = [], 0, []
+    stopped = None
     for n, item in enumerate(golden, start=1):
         print(f"\rrouting {n}/{len(golden)}", end="", flush=True)
         msgs = messages_of(item)
@@ -64,14 +66,23 @@ def main() -> None:
             "route", settings.llm_model_small, ROUTER_PROMPT, *(m.content for m in msgs)
         )
         if (hit := cache.get(key)) is None:
+            if stopped:  # a daily quota ran out: the rest can't run today
+                errors.append(item["id"])
+                continue
             calls += 1
-            hit = route_with_retry(analyze, msgs)
+            try:
+                hit = route_with_retry(analyze, msgs)
+            except DailyLimitReached as exc:
+                stopped = str(exc)
+                hit = None
             if hit is None:  # never cache or score a failure as an answer
                 errors.append(item["id"])
                 continue
             cache.set(key, hit)
         rows.append((item, Analysis(**hit)))
     print()
+    if stopped:
+        print(f"STOPPED EARLY: {stopped}")
     if errors:
         print(f"{len(errors)} questions failed after retries (rate limit?): {errors}")
 
