@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing chat api test test-all lint format
+.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails chat api test test-all lint format
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -54,6 +54,9 @@ eval-retrieval: ## Score retrieval on the golden questions (writes evals/reports
 
 eval-routing: ## Score the router on the golden questions (writes evals/reports/routing.md)
 	$(UV) python -m scripts.eval_routing $(args)
+
+eval-guardrails: ## Run the attack set: make eval-guardrails [args="--level full"]
+	$(UV) python -m scripts.eval_guardrails $(args)
 
 chat: ## Chat with the agent in the terminal: make chat [args="--debug" | args="--thread ID"]
 	$(UV) python -m scripts.chat $(args)

@@ -14,15 +14,23 @@ from langchain_core.language_models import BaseChatModel
 
 from app.config import Settings, get_settings
 
-Role = Literal["main", "small"]
+Role = Literal["main", "small", "safety"]
 
 
 def get_chat_model(role: Role, settings: Settings | None = None) -> BaseChatModel:
     settings = settings or get_settings()
-    model = settings.llm_model_main if role == "main" else settings.llm_model_small
+    model = {
+        "main": settings.llm_model_main,
+        "small": settings.llm_model_small,
+        "safety": settings.safety_model,
+    }[role]
     provider = model.split(":", 1)[0]
 
     kwargs: dict = {"temperature": 0, "max_retries": 3}  # retries back off on 429 rate limits
+    if role == "safety":
+        # A short verdict; little reasoning needed. Retry: per-minute limits reset in seconds,
+        # and a guard that gives up instantly under load would let attacks through
+        kwargs.update(max_retries=3, max_tokens=800, reasoning_effort="low")
     if role == "small":
         # Fail fast: the agent falls back to the main model (a daily-limit 429 can mean waiting
         # minutes inside the client's retry loop)

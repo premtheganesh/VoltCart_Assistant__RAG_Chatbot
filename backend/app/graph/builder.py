@@ -1,6 +1,9 @@
 """The agent as a LangGraph state machine.
 
-    START ─► router ─┬─ product_info / recommendation ─► retrieve ─► answer (+ catalog tools) ─► END
+    START ─┬─ guard (safety model) ─┐
+           └─ router (route+rewrite)┴─► dispatch ─┬─ unsafe ─► blocked (fixed reply)
+                     ┌───────────────────────────┘
+                     ├─ product_info / recommendation ─► retrieve ─► answer (+ catalog tools) ─► END
                      ├─ order ─────► verify order number + email in code ─► answer from the order
                      ├─ handoff ───► collect contact details ─► create a support ticket
                      ├─ smalltalk ─► short friendly reply
@@ -28,17 +31,25 @@ from app.graph.prompts import (
     ASK_ORDER_DETAILS,
     ASK_ORDER_EMAIL,
     ASK_ORDER_NUMBER,
+    DEESCALATE_REPLY,
+    HARMFUL_REPLY,
     MAX_VERIFY_ATTEMPTS,
     NO_ANSWER_REPLY,
     OFF_TOPIC_REPLY,
     ORDER_LOCKED,
     ORDER_NOT_FOUND,
     ORDER_PROMPT,
+    PROMPT_ATTACK_REPLY,
+    REWRITE_NOTE,
     SMALLTALK_PROMPT,
     TICKET_CREATED,
     TICKET_EXISTS,
+    UNGROUNDED_REPLY,
+    UNSAFE_OUTPUT_REPLY,
 )
 from app.graph.state import Analysis, ChatState, Contact
+from app.guardrails.grounding import GroundingChecker
+from app.guardrails.safety import Checker
 from app.retrieval.retriever import RetrievalResult, RetrievedChunk
 from app.tools.orders import find_emails, find_order_numbers
 
@@ -144,6 +155,9 @@ def build_graph(
     save_ticket: TicketSaver | None = None,
     extract_contact: ContactExtractor | None = None,
     tools: list[BaseTool] | None = None,
+    check_input: Checker | None = None,
+    check_output: Checker | None = None,
+    check_grounding: GroundingChecker | None = None,
     checkpointer: Checkpointer = None,
     history_messages: int = 10,
     today: Callable[[], date] = date.today,
@@ -153,7 +167,10 @@ def build_graph(
     def router(state: ChatState) -> dict:
         message = last_user_text(state["messages"])
         # Per-turn data is reset so nothing from the previous answer leaks into this one
-        turn = {"sources": [], "citations": [], "top_score": None, "passed_gate": None}
+        turn = {
+            "sources": [], "citations": [], "top_score": None, "passed_gate": None,
+            "grounded": None,
+        }  # fmt: skip
         awaiting = state.get("awaiting")
         turn["awaiting"] = None
         # The customer is answering our question: no need to ask the LLM where this goes
@@ -163,6 +180,39 @@ def build_graph(
             return {**turn, "route": "handoff", "search_query": message}
         analysis = analyze(conversation(state["messages"], history_messages))
         return {**turn, "route": analysis.route, "search_query": analysis.search_query}
+
+    def guard(state: ChatState) -> dict:
+        if check_input is None:
+            return {"safety": "safe", "safety_reason": ""}
+        verdict = check_input(last_user_text(state["messages"]))
+        return {"safety": verdict.category, "safety_reason": verdict.reason}
+
+    def blocked(state: ChatState) -> dict:
+        if state["safety"] == "abuse":
+            return reply(DEESCALATE_REPLY, handoff_reason="customer_frustrated")
+        return reply(HARMFUL_REPLY if state["safety"] == "harmful" else PROMPT_ATTACK_REPLY)
+
+    def finish(text: str, sources: list[dict], regenerate: Callable[[str], str]) -> dict:
+        """L2 grounding (optional): rewrite once if unsupported, else admit uncertainty.
+        Output check (optional): never show an unsafe reply."""
+        grounded = None
+        if check_grounding is not None and sources:
+            verdict = check_grounding(text, format_sources(sources))
+            if not verdict.supported:
+                text = normalize_citations(
+                    regenerate(REWRITE_NOTE.format(claims="; ".join(verdict.unsupported_claims)))
+                )
+                verdict = check_grounding(text, format_sources(sources))
+            grounded = verdict.supported
+            if not grounded:
+                return reply(
+                    UNGROUNDED_REPLY, grounded=False, sources=sources, handoff_reason="ungrounded"
+                )
+        if check_output is not None and check_output(text).category != "safe":
+            return reply(UNSAFE_OUTPUT_REPLY, sources=sources)
+        return reply(
+            text, sources=sources, citations=extract_citations(text, sources), grounded=grounded
+        )
 
     def retrieve_node(state: ChatState) -> dict:
         result = retrieve(state["search_query"])
@@ -205,12 +255,18 @@ def build_graph(
         system = ANSWER_PROMPT.format(
             today=today().strftime("%B %d, %Y"), sources=format_sources(state["sources"])
         )
-        response, sources = run_with_tools(
-            [SystemMessage(system), *conversation(state["messages"], history_messages)],
-            state["sources"],
-        )
-        text = normalize_citations(text_of(response).strip())
-        return reply(text, sources=sources, citations=extract_citations(text, sources))
+        history = conversation(state["messages"], history_messages)
+        response, sources = run_with_tools([SystemMessage(system), *history], state["sources"])
+
+        def regenerate(note: str) -> str:
+            # All sources, including catalog tool results, now listed in the prompt itself
+            prompt = ANSWER_PROMPT.format(
+                today=today().strftime("%B %d, %Y"), sources=format_sources(sources)
+            )
+            fixed = answer_llm.invoke([SystemMessage(prompt), *history, SystemMessage(note)])
+            return text_of(fixed).strip()
+
+        return finish(normalize_citations(text_of(response).strip()), sources, regenerate)
 
     def order(state: ChatState) -> dict:
         """Verification happens here, in code: the LLM only phrases the answer afterwards."""
@@ -263,15 +319,24 @@ def build_graph(
             order=json.dumps(details, indent=2),
             sources=format_sources(sources),
         )
-        response = answer_llm.invoke(
-            [SystemMessage(system), *conversation(state["messages"], history_messages)]
+        history = conversation(state["messages"], history_messages)
+        response = answer_llm.invoke([SystemMessage(system), *history])
+
+        def regenerate(note: str) -> str:
+            fixed = answer_llm.invoke([SystemMessage(system), *history, SystemMessage(note)])
+            return text_of(fixed).strip()
+
+        # The order itself is a source for the grounding judge (n=0: never shown as a citation)
+        order_source = {"n": 0, "heading": f"Order {number}", "file": "order", "content":
+                        json.dumps(details, indent=2)}  # fmt: skip
+        result_update = finish(
+            normalize_citations(text_of(response).strip()), [order_source, *sources], regenerate
         )
-        text = normalize_citations(text_of(response).strip())
-        return reply(
-            text, verified_orders=verified, pending_order=None, pending_question=None,
-            sources=sources, top_score=result.top_score,
-            citations=extract_citations(text, sources),
-        )  # fmt: skip
+        result_update["sources"] = sources
+        return {
+            **result_update, "verified_orders": verified, "pending_order": None,
+            "pending_question": None, "top_score": result.top_score,
+        }  # fmt: skip
 
     def handoff(state: ChatState, config: RunnableConfig) -> dict:
         if state.get("ticket_ref"):
@@ -311,9 +376,15 @@ def build_graph(
         response = chat_llm.invoke(
             [SystemMessage(SMALLTALK_PROMPT), *conversation(state["messages"], 4)]
         )
-        return reply(text_of(response).strip())
+        text = text_of(response).strip()
+        if check_output is not None and check_output(text).category != "safe":
+            return reply(UNSAFE_OUTPUT_REPLY)
+        return reply(text)
 
     graph = StateGraph(ChatState)
+    graph.add_node("guard", guard)
+    graph.add_node("dispatch", lambda state: {})
+    graph.add_node("blocked", blocked)
     graph.add_node("router", router)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("answer", answer)
@@ -322,11 +393,15 @@ def build_graph(
     graph.add_node("smalltalk", smalltalk)
     graph.add_node("off_topic", lambda state: reply(OFF_TOPIC_REPLY))
 
+    # The safety check and the router run in parallel; dispatch waits for both
+    graph.add_edge(START, "guard")
     graph.add_edge(START, "router")
+    graph.add_edge(["guard", "router"], "dispatch")
     graph.add_conditional_edges(
-        "router",
-        lambda state: state["route"],
+        "dispatch",
+        lambda state: "blocked" if state["safety"] != "safe" else state["route"],
         {
+            "blocked": "blocked",
             "product_info": "retrieve",
             "recommendation": "retrieve",
             "order": "order",
@@ -336,6 +411,6 @@ def build_graph(
         },
     )
     graph.add_edge("retrieve", "answer")
-    for node in ("answer", "order", "handoff", "smalltalk", "off_topic"):
+    for node in ("answer", "order", "handoff", "smalltalk", "off_topic", "blocked"):
         graph.add_edge(node, END)
     return graph.compile(checkpointer=checkpointer)

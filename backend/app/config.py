@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     langfuse_secret_key: SecretStr | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
 
+    # Guardrails
+    safety_model: str = "groq:openai/gpt-oss-safeguard-20b"  # input check, always on
+    prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"  # backup injection check
+    output_guard: bool = False  # also check the bot's replies (one more call per answer)
+    grounding_check: bool = False  # L2: a judge verifies each answer against its sources
+
     # Agent
     history_messages: int = 10  # earlier messages the LLM sees (all are stored)
 

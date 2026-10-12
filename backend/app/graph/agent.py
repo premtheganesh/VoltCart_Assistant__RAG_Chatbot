@@ -21,8 +21,11 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db.session import get_engine
 from app.graph.builder import Analyzer, ContactExtractor, RetrieveFn, build_graph, text_of
-from app.graph.prompts import CONTACT_PROMPT, ROUTER_PROMPT
+from app.graph.prompts import CONTACT_PROMPT, PII_NOTICE, ROUTER_PROMPT
 from app.graph.state import Analysis, Contact
+from app.guardrails.grounding import make_grounding_checker
+from app.guardrails.pii import redact
+from app.guardrails.safety import INPUT_POLICY, OUTPUT_POLICY, make_checker, make_prompt_guard
 from app.llm.chat import get_chat_model
 from app.llm.embeddings import get_embedder
 from app.observability import get_langfuse_handler
@@ -158,6 +161,21 @@ def make_contact_extractor(
     return extract
 
 
+def make_guardrails(settings: Settings, main: BaseChatModel) -> dict:
+    """Input check always on; output check and L2 grounding only when enabled in .env."""
+    safety = get_chat_model("safety", settings)
+    prompt_guard = (
+        make_prompt_guard(settings.groq_api_key.get_secret_value(), settings.prompt_guard_model)
+        if settings.groq_api_key
+        else None
+    )
+    return {
+        "check_input": make_checker(safety, INPUT_POLICY, backup=prompt_guard),
+        "check_output": make_checker(safety, OUTPUT_POLICY) if settings.output_guard else None,
+        "check_grounding": make_grounding_checker(main) if settings.grounding_check else None,
+    }
+
+
 @dataclass
 class Turn:
     answer: str
@@ -168,6 +186,10 @@ class Turn:
     top_score: float | None = None
     passed_gate: bool | None = None
     latency_ms: float = 0.0
+    safety: str = "safe"  # input check verdict
+    safety_reason: str = ""
+    grounded: bool | None = None  # L2 grounding result, when enabled
+    notice: str | None = None  # shown above the answer, e.g. "we removed your card number"
 
 
 class Agent:
@@ -183,7 +205,10 @@ class Agent:
             "run_name": "voltcart-chat",
         }
         start = time.perf_counter()
-        state = self.graph.invoke({"messages": [HumanMessage(message)]}, config)
+        # PII never reaches the models, the chat memory or the traces
+        clean = redact(message)
+        state = self.graph.invoke({"messages": [HumanMessage(clean.text)]}, config)
+        kinds = {"card": "card number", "ssn": "Social Security number", "cvv": "security code"}
         return Turn(
             answer=text_of(state["messages"][-1]),
             route=state.get("route", ""),
@@ -193,6 +218,12 @@ class Agent:
             top_score=state.get("top_score"),
             passed_gate=state.get("passed_gate"),
             latency_ms=round((time.perf_counter() - start) * 1000),
+            safety=state.get("safety", "safe"),
+            safety_reason=state.get("safety_reason", ""),
+            grounded=state.get("grounded"),
+            notice=PII_NOTICE.format(kinds=" and ".join(kinds[k] for k in clean.found))
+            if clean.found
+            else None,
         )
 
 
@@ -213,6 +244,7 @@ def open_agent(settings: Settings | None = None, *, persist: bool = True) -> Ite
         extract_contact=make_contact_extractor(small, backup=main),
         tools=make_product_tools(),
         history_messages=settings.history_messages,
+        **make_guardrails(settings, main),
     )
     tracer = get_langfuse_handler()
     if not persist:

@@ -44,6 +44,9 @@ class ChatState(TypedDict, total=False):
     top_score: float | None
     passed_gate: bool | None
     citations: list[dict]  # the sources the answer actually cited
+    safety: str  # input check verdict: safe / prompt_attack / harmful / abuse
+    safety_reason: str
+    grounded: bool | None  # L2 check result (None when the check is off or not applicable)
 
     # Kept across turns (the conversation's security and handoff memory)
     verified_orders: dict[str, str]  # order number -> email it was verified with

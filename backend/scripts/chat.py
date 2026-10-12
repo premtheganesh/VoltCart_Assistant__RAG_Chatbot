@@ -17,6 +17,8 @@ from app.observability import flush_traces
 
 
 def show(turn, debug: bool) -> None:
+    if turn.notice:
+        print(f"\n  (!) {turn.notice}")
     print(f"\nbot> {turn.answer}\n")
     for c in turn.citations:
         where = c["url"] or c["file"] + (f", page {c['page']}" if c["page"] else "")
@@ -28,7 +30,9 @@ def show(turn, debug: bool) -> None:
             gate = f"top score {turn.top_score:.3f}"
         else:
             gate = f"gate {turn.top_score:.3f} {'pass' if turn.passed_gate else 'FAIL'}"
-        details = f"route={turn.route} | query={turn.search_query!r} | {gate}"
+        safety = "" if turn.safety == "safe" else f"BLOCKED: {turn.safety} | "
+        grounded = "" if turn.grounded is None else f" | grounded={turn.grounded}"
+        details = f"{safety}route={turn.route} | query={turn.search_query!r} | {gate}{grounded}"
         print(f"     -- {details} | {turn.latency_ms} ms")
         for s in turn.sources:
             score = f"{s['score']:.3f}" if s["score"] is not None else " live"  # catalog tool

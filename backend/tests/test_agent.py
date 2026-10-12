@@ -292,3 +292,8 @@ def test_conversation_survives_a_restart_in_postgres():
     finally:
         with PostgresSaver.from_conn_string(url) as saver:
             saver.delete_thread(thread)
+
+
+def test_safety_model_retries_rate_limits():
+    settings = Settings(_env_file=None, groq_api_key="k")
+    assert get_chat_model("safety", settings).max_retries == 3
