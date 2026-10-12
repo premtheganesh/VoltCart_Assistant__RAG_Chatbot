@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails chat api test test-all lint format
+.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails chat api web-install web web-test test test-all lint format
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -63,6 +63,15 @@ chat: ## Chat with the agent in the terminal: make chat [args="--debug" | args="
 
 api: ## Run the API with auto-reload on http://localhost:8000
 	$(UV) uvicorn app.main:app --reload --port 8000
+
+web-install: ## Install the chat UI's packages (frontend/node_modules)
+	cd frontend && npm install
+
+web: ## Run the chat UI with hot reload on http://localhost:3000 (needs `make api` running)
+	cd frontend && npm run dev
+
+web-test: ## Type-check and unit-test the chat UI
+	cd frontend && npm run typecheck && npm test
 
 test: ## Run unit tests (no services needed)
 	$(UV) pytest -m "not integration"

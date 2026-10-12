@@ -68,7 +68,7 @@ class Settings(BaseSettings):
 
     # API
     # Browser origins allowed to call the API, comma-separated (the chat site and the widget)
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     chat_rate_per_minute: int = 20  # messages per visitor (IP address) per minute
     login_rate_per_minute: int = 5  # admin login attempts per IP per minute (slows guessing)
     max_upload_mb: int = 10

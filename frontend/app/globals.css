@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+/*
+ * VoltCart look: warm paper and ink, one "volt" accent used sparingly (brand mark, citations,
+ * highlights). Accent is a background color only: as text on light paper it would fail contrast,
+ * so text that needs the brand color uses --accent-strong.
+ */
+:root {
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --surface-2: #efece4;
+  --text: #1b1a17;
+  --muted: #69655c;
+  --border: #e4dfd4;
+  --ink: #1b1a17;
+  --on-ink: #f7f5f0;
+  --accent: #d6f25a;
+  --on-accent: #1b1a17;
+  --accent-strong: #4a6600;
+  --warn-bg: #fbf0d9;
+  --warn-text: #74480a;
+  --danger: #b42318;
+  --ok: #2d7a39;
+  --low: #b26b00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131311;
+    --surface: #1b1a17;
+    --surface-2: #25231f;
+    --text: #ece8df;
+    --muted: #a29d91;
+    --border: #312e28;
+    --ink: #ece8df;
+    --on-ink: #131311;
+    --accent: #d6f25a;
+    --on-accent: #131311;
+    --accent-strong: #c9e85a;
+    --warn-bg: #2c2414;
+    --warn-text: #f0c76a;
+    --danger: #ff8a7a;
+    --ok: #7fd18b;
+    --low: #f0b45a;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-text: var(--warn-text);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-low: var(--low);
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--accent); color: var(--on-accent); }
+
+/* Answers: comfortable reading, 45-75 characters a line */
+.answer { max-width: 68ch; line-height: 1.65; }
+.answer > * + * { margin-top: 0.75em; }
+.answer ul { list-style: disc; padding-left: 1.25rem; }
+.answer ol { list-style: decimal; padding-left: 1.25rem; }
+.answer li + li { margin-top: 0.25em; }
+.answer li::marker { color: var(--muted); }
+.answer strong { font-weight: 600; }
+.answer h1, .answer h2, .answer h3 { font-weight: 600; letter-spacing: -0.01em; }
+.answer code { background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
+.answer table { border-collapse: collapse; font-size: 0.925em; line-height: 1.5; }
+.answer th, .answer td { border-bottom: 1px solid var(--border); padding: 0.55em 0.9em 0.55em 0; text-align: left; vertical-align: top; }
+.answer th { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+
+/* Caret at the end of the answer while it streams in */
+.caret-last > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  background: var(--text);
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* New messages settle in gently (ease-out: soft landing, 200ms) */
+.rise { animation: rise 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+
+/* "Looking that up" dots */
+.dots span { animation: dot 1.2s ease-in-out infinite; }
+.dots span:nth-child(2) { animation-delay: 0.15s; }
+.dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
+
+.flash { animation: flash 1.4s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 55%, transparent); } to { background: transparent; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .caret-last > :last-child::after, .rise, .dots span, .flash { animation: none; }
+}

@@ -12,11 +12,13 @@ from sqlalchemy.orm import Session
 from app.api import admin, chat
 from app.api.security import RateLimiter, create_token
 from app.config import PROJECT_ROOT, Settings, get_settings
-from app.db.models import EMBED_DIM
+from app.db.models import EMBED_DIM, Product, Ticket
 from app.db.session import get_engine, get_session, get_session_factory
+from app.graph.prompts import TICKET_EXISTS
 from app.main import app
 from app.tools.tickets import create_ticket
-from tests.test_api import SESSION, FakeAgent, parse_sse
+from tests.test_agent import Spy, make_agent, route
+from tests.test_api import SESSION, FakeAgent, parse_sse, turn
 
 pytestmark = pytest.mark.integration
 DOCS = PROJECT_ROOT / "sample_data" / "docs"
@@ -76,10 +78,8 @@ def auth() -> dict:
     return {"Authorization": f"Bearer {create_token(s)}"}
 
 
-def say(c: TestClient, message: str, session_id=SESSION, answer="Hi [1].") -> dict:
-    from tests.test_api import turn
-
-    app.state.agent = FakeAgent(tokens=(answer,), result=turn(answer, question=message))
+def say(c: TestClient, message: str, session_id=SESSION, answer="Hi [1].", **fields) -> dict:
+    app.state.agent = FakeAgent(tokens=(answer,), result=turn(answer, question=message, **fields))
     events = parse_sse(c.post("/chat", json={"message": message, "session_id": session_id}).text)
     assert events[-1][0] == "done", events
     return events[-1][1]
@@ -144,6 +144,96 @@ def test_admin_sees_conversations_and_thumbs_down(db, kb, scores):
         return [f["question"] for f in found if f["thread_id"] in (SESSION, "d" * 32)]
 
     assert rated(-1) == ["restocking fee?"] and rated(1) == []
+
+
+# ---------- product cards ----------
+
+
+def test_cited_products_come_with_live_catalog_data(db):
+    with db() as s:
+        product = s.query(Product).order_by(Product.sku).first()
+    citations = [
+        {"n": 1, "source": "sample_data/docs/returns-and-refunds.html", "title": "Returns"},
+        {"n": 2, "source": f"catalog:{product.sku}", "title": product.name},
+        {"n": 3, "source": "catalog:NO-SUCH-SKU", "title": "Gone"},
+    ]
+    done = say(TestClient(app), "which one?", citations=citations)
+    assert [p["sku"] for p in done["products"]] == [product.sku], "only real catalog products"
+    card = done["products"][0]
+    assert card["price_usd"] == float(product.price_usd) and card["stock"] and card["rating"]
+
+
+def test_cards_for_products_a_cited_guide_covers_and_the_answer_names(db):
+    with db() as s:
+        first, second = s.query(Product).order_by(Product.sku).limit(2).all()
+    guide = {"n": 1, "source": "sample_data/docs/guide.docx", "title": "Guide",
+             "products": [first.sku, second.sku]}  # fmt: skip
+    answer = f"For running, pick the {first.name} [1]."
+    done = say(TestClient(app), "running?", answer=answer, citations=[guide])
+    assert [p["sku"] for p in done["products"]] == [first.sku], "named in the answer: card"
+
+
+# ---------- contact form (handoff) ----------
+
+
+def form(c: TestClient, **fields):
+    body = {"session_id": SESSION, "email": "Ana@Example.com", "name": "Ana Lopez",
+            "message": "My laptop arrived cracked"} | fields  # fmt: skip
+    return c.post("/handoff", json=body)
+
+
+def graph_agent(*routes):
+    agent, _ = make_agent(Spy([route(r) for r in routes]), answers=["Fee is 10% [1]."])
+    app.state.agent = agent
+    return agent
+
+
+def test_contact_form_creates_a_ticket_with_the_chat_so_far(db):
+    c = TestClient(app)
+    say(c, "returns?", answer="30 days [1].")
+    agent = graph_agent()
+    response = form(c)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["created"] and body["ticket_ref"] in body["message"]
+    assert "Thanks, Ana!" in body["message"] and "ana@example.com" in body["message"]
+
+    with db() as s:
+        ticket = s.get(Ticket, int(body["ticket_ref"][2:]))
+        assert ticket.email == "ana@example.com" and ticket.summary == "My laptop arrived cracked"
+        assert ticket.transcript == [{"role": "user", "content": "returns?"},
+                                     {"role": "assistant", "content": "30 days [1]."}]  # fmt: skip
+        assert ticket.reason == "customer_request"
+    assert agent.state(SESSION)["ticket_ref"] == body["ticket_ref"], "the bot knows"
+    history = c.get(f"/chat/{SESSION}/history").json()
+    assert history[-1]["answer"] == body["message"], "a page reload still shows it"
+
+
+def test_second_form_and_later_chat_reuse_the_ticket(db):
+    c = TestClient(app)
+    agent = graph_agent("handoff")
+    ref = form(c).json()["ticket_ref"]
+    again = form(c).json()
+    assert again == {"ticket_ref": ref, "message": TICKET_EXISTS.format(ref=ref),
+                     "created": False}  # fmt: skip
+    # Then asking the bot for a human: it already knows about the ticket
+    assert agent.ask(SESSION, "can I talk to a human?").answer == TICKET_EXISTS.format(ref=ref)
+
+
+def test_ticket_reason_comes_from_the_conversation(db):
+    agent = graph_agent("product_info")
+    agent.graph.update_state({"configurable": {"thread_id": SESSION}},
+                             {"handoff_reason": "no_answer"}, as_node="handoff")  # fmt: skip
+    ref = form(TestClient(app)).json()["ticket_ref"]
+    with db() as s:
+        assert s.get(Ticket, int(ref[2:])).reason == "no_answer"
+
+
+def test_card_numbers_are_removed_from_the_ticket(db):
+    graph_agent()
+    ref = form(TestClient(app), message="charged twice on 4111 1111 1111 1111").json()["ticket_ref"]
+    with db() as s:
+        assert "4111" not in s.get(Ticket, int(ref[2:])).summary
 
 
 # ---------- tickets ----------

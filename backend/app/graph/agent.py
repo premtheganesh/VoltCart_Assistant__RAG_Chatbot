@@ -14,7 +14,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessageChunk, AnyMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    AnyMessage,
+    HumanMessage,
+    SystemMessage,
+)
 from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 from sqlalchemy.orm import Session
@@ -266,6 +272,24 @@ class Agent:
         if text := citations.flush():
             yield "token", text
         yield "done", self._turn(state, clean, start, turn_id)
+
+    def state(self, thread_id: str) -> dict:
+        """The conversation's saved state ({} for a new one)."""
+        return self.graph.get_state({"configurable": {"thread_id": thread_id}}).values
+
+    def record_handoff(self, thread_id: str, ticket_ref: str, reply: str) -> None:
+        """A ticket was created outside the chat (the contact form): tell the conversation, so
+        the bot knows about it ("your ticket T-00042 is already with our team")."""
+        self.graph.update_state(
+            {"configurable": {"thread_id": thread_id}},
+            {
+                "messages": [AIMessage(reply)],
+                "ticket_ref": ticket_ref,
+                "handoff_reason": None,
+                "awaiting": None,
+            },  # fmt: skip
+            as_node="handoff",
+        )
 
     def _turn(self, state: dict, clean, start: float, turn_id: str) -> Turn:
         return Turn(

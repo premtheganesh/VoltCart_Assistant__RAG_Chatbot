@@ -27,10 +27,15 @@ from sqlalchemy import select
 
 from app.api.security import RateLimiter, client_ip
 from app.config import get_settings
-from app.db.models import ChatTurn, Feedback
+from app.db.models import ChatTurn, Feedback, Product
 from app.db.session import DbSession, SessionFactory
 from app.graph.agent import Agent, Turn
+from app.graph.prompts import TICKET_CREATED, TICKET_EXISTS
+from app.guardrails.pii import redact
+from app.ingestion.pipeline import CATALOG_PREFIX, SHORT_NAME
 from app.observability import record_feedback
+from app.tools import products
+from app.tools.tickets import create_ticket
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
@@ -98,7 +103,37 @@ def done_event(turn: Turn) -> dict:
         "notice": turn.notice,
         "ticket_ref": turn.ticket_ref,
         "latency_ms": turn.latency_ms,
+        "products": [],  # filled in with live catalog data for cited products
     }
+
+
+MAX_CARDS = 4
+
+
+def cited_products(sessions, citations: list[dict], answer: str) -> list[dict]:
+    """Product cards with live price, stock and rating: products from the catalog the answer
+    cites, plus products a cited document is about *and* the answer names (a buying guide
+    recommending the Stride Open shows its card; one that only mentions it in passing doesn't)."""
+    cited = [c["source"].removeprefix(CATALOG_PREFIX) for c in citations
+             if c.get("source", "").startswith(CATALOG_PREFIX)]  # fmt: skip
+    tagged = [sku for c in citations for sku in c.get("products") or []]
+    candidates = list(dict.fromkeys(cited + tagged))  # unique, in order
+    if not candidates:
+        return []
+    with sessions() as session:
+        rows = {
+            p.sku: p for p in session.scalars(select(Product).where(Product.sku.in_(candidates)))
+        }
+    text = answer.lower()
+    cards = []
+    for sku in candidates:
+        p = rows.get(sku)
+        named = p is not None and (
+            p.name.lower() in text or SHORT_NAME.sub("", p.name).lower() in text
+        )
+        if p is not None and (sku in cited or named):
+            cards.append(products.summary(p))
+    return cards[:MAX_CARDS]
 
 
 def save_turn(sessions, thread_id: str, turn: Turn) -> None:
@@ -147,7 +182,12 @@ def chat(
                 save_turn(sessions, session_id, turn)
             except Exception:  # the customer still gets the answer; only the log entry is lost
                 log.exception("could not save chat turn %s", turn_id)
-            events.put(("done", done_event(turn)))
+            done = done_event(turn)
+            try:
+                done["products"] = cited_products(sessions, turn.citations, turn.answer)
+            except Exception:  # cards are a nice-to-have: the answer already has the facts
+                log.exception("could not load product cards")
+            events.put(("done", done))
         except Exception:
             log.exception("chat turn %s failed", turn_id)
             events.put(("error", {"message": CHAT_ERROR}))
@@ -217,3 +257,69 @@ def feedback(body: FeedbackRequest, session: DbSession) -> None:
         turn.feedback.rating, turn.feedback.comment = body.rating, body.comment
     session.commit()
     record_feedback(turn.id, body.rating, body.comment)
+
+
+class HandoffRequest(BaseModel):
+    session_id: str = Field(pattern=SESSION_ID)
+    email: str = Field(max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    name: str | None = Field(None, max_length=200)
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class HandoffResponse(BaseModel):
+    ticket_ref: str
+    message: str
+    created: bool  # False: this conversation already had a ticket
+
+
+@router.post("/handoff")
+def handoff(
+    body: HandoffRequest,
+    request: Request,
+    agent: Annotated[Agent, Depends(get_agent)],
+    session: DbSession,
+    limiter: Annotated[RateLimiter, Depends(get_chat_limiter)],
+) -> HandoffResponse:
+    """The "talk to a human" form: creates a support ticket with the chat so far, no LLM."""
+    limiter.check(client_ip(request))
+    if not active_sessions.claim(body.session_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Still answering your previous message.")
+    try:
+        state = agent.state(body.session_id)
+        if ref := state.get("ticket_ref"):
+            return HandoffResponse(ticket_ref=ref, message=TICKET_EXISTS.format(ref=ref),
+                                   created=False)  # fmt: skip
+        turns = session.scalars(
+            select(ChatTurn).where(ChatTurn.thread_id == body.session_id)
+            .order_by(ChatTurn.created_at.desc()).limit(6)
+        ).all()  # fmt: skip
+        transcript = [
+            {"role": role, "content": text}
+            for t in reversed(turns)
+            for role, text in (("user", t.question), ("assistant", t.answer))
+        ]
+        message = redact(body.message).text  # no card numbers in the ticket either
+        name = (body.name or "").strip() or None
+        ref = create_ticket(
+            session, thread_id=body.session_id, name=name, email=body.email,
+            summary=message, reason=state.get("handoff_reason") or "customer_request",
+            transcript=transcript,
+        )  # fmt: skip
+        reply = TICKET_CREATED.format(
+            name=f", {name.split()[0]}" if name else "", ref=ref, email=body.email.lower()
+        )
+        session.add(
+            ChatTurn(
+                id=uuid.uuid4().hex, thread_id=body.session_id,
+                question=f"(contact form) {message}", answer=reply, route="handoff",
+                citations=[], latency_ms=0, created_at=datetime.now(UTC),
+            )
+        )  # fmt: skip
+        session.commit()
+        try:
+            agent.record_handoff(body.session_id, ref, reply)
+        except Exception:  # the ticket exists; the bot just won't know about it in this chat
+            log.exception("could not add ticket %s to the conversation", ref)
+        return HandoffResponse(ticket_ref=ref, message=reply, created=True)
+    finally:
+        active_sessions.release(body.session_id)

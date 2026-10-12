@@ -120,6 +120,7 @@ def chunk_sources(chunks: list[RetrievedChunk], start: int = 1) -> list[dict]:
             "url": c.url,
             "page": c.page,
             "score": round(c.score, 3),
+            "products": c.products,  # SKUs this chunk is about (for product cards)
             "content": c.content,
         }
         for n, c in enumerate(chunks, start=start)
@@ -145,6 +146,7 @@ def product_source(n: int, p: dict) -> dict:
         "url": None,
         "page": None,
         "score": None,
+        "products": [p["sku"]],
         "content": "\n".join(lines),
     }
 

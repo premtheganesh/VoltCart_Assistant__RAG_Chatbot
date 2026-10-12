@@ -130,7 +130,7 @@ def test_chat_streams_start_tokens_done():
 def test_done_event_hides_internal_details():
     done = parse_sse(client(FakeAgent()).post("/chat", json={"message": "hi"}).text)[-1][1]
     assert set(done) == {"message_id", "answer", "citations", "route", "notice", "ticket_ref",
-                         "latency_ms"}  # fmt: skip
+                         "latency_ms", "products"}  # fmt: skip
 
 
 def test_blocked_messages_say_so():
@@ -168,6 +168,18 @@ def test_answer_still_arrives_when_the_log_write_fails():
     events = parse_sse(client(FakeAgent(), Saved(fail=True)).post(
         "/chat", json={"message": "hi"}).text)  # fmt: skip
     assert events[-1][0] == "done"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"session_id": SESSION, "email": "not-an-email", "message": "help"},
+        {"session_id": SESSION, "email": "a@b.co", "message": ""},
+        {"session_id": "short", "email": "a@b.co", "message": "help"},
+    ],
+)
+def test_bad_handoff_requests_are_rejected(body):
+    assert client(FakeAgent()).post("/handoff", json=body).status_code == 422
 
 
 @pytest.mark.parametrize(
@@ -348,6 +360,8 @@ def test_cors_allows_only_our_sites():
     preflight = {"Access-Control-Request-Method": "POST"}
     ok = c.options("/chat", headers={"Origin": "http://localhost:3000", **preflight})
     assert ok.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    local = c.options("/chat", headers={"Origin": "http://127.0.0.1:3000", **preflight})
+    assert local.headers.get("access-control-allow-origin") == "http://127.0.0.1:3000"
     bad = c.options("/chat", headers={"Origin": "https://evil.example", **preflight})
     assert "access-control-allow-origin" not in bad.headers
 
