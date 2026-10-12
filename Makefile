@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails chat api web-install web web-test widget-demo test test-all lint format
+.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails eval-answers eval eval-summary synthetic chat api web-install web web-test widget-demo test test-all lint format
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -57,6 +57,22 @@ eval-routing: ## Score the router on the golden questions (writes evals/reports/
 
 eval-guardrails: ## Run the attack set: make eval-guardrails [args="--level full"]
 	$(UV) python -m scripts.eval_guardrails $(args)
+
+eval-answers: ## Grade answers with a judge model: make eval-answers [args="--all" | args="--ids g001"]
+	$(UV) python -m scripts.eval_answers $(args)
+
+eval: ## Run every eval, then check all quality gates (evals/thresholds.toml); cached re-runs are cheap
+	-$(UV) python -m scripts.eval_retrieval
+	-$(UV) python -m scripts.eval_routing
+	-$(UV) python -m scripts.eval_guardrails --level full
+	-$(UV) python -m scripts.eval_answers
+	$(UV) python -m scripts.eval_all
+
+eval-summary: ## Check the quality gates against the latest eval results (no API calls)
+	$(UV) python -m scripts.eval_all
+
+synthetic: ## Draft new test questions from the documents for review: make synthetic [args="--n 10"]
+	$(UV) python -m scripts.generate_synthetic $(args)
 
 chat: ## Chat with the agent in the terminal: make chat [args="--debug" | args="--thread ID"]
 	$(UV) python -m scripts.chat $(args)

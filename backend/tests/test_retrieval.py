@@ -88,6 +88,57 @@ def test_only_transient_errors_are_retried():
     assert not _is_transient(ValueError())
 
 
+def test_timeouts_are_retried_briefly():
+    import httpx
+
+    assert _is_transient(httpx.ReadTimeout("slow")) and _is_transient(httpx.ConnectError("x"))
+
+
+def test_cohere_reranker_has_a_timeout_and_gives_up_quickly(monkeypatch):
+    """A rerank that never answers must not hold the customer for minutes."""
+    import httpx
+
+    from app.retrieval import reranker as module
+
+    reranker = module.CohereReranker("key", "rerank-v3.5", timeout_s=7)
+    assert reranker._client._client_wrapper.get_timeout() == 7
+    calls = []
+
+    def hang(**kwargs):
+        calls.append(kwargs)
+        raise httpx.ReadTimeout("no answer")
+
+    monkeypatch.setattr(reranker._client, "rerank", hang)
+    monkeypatch.setattr(module.CohereReranker._rerank.retry, "sleep", lambda s: None)
+    with pytest.raises(httpx.ReadTimeout):
+        reranker.rerank("q", ["a", "b"])
+    assert 1 < len(calls) <= 4, "a few quick retries, then give up"
+    assert calls[0] == {"model": "rerank-v3.5", "query": "q", "documents": ["a", "b"]}
+
+
+def test_circuit_breaker_skips_a_failing_reranker_then_tries_again(monkeypatch):
+    from app.retrieval import reranker as module
+
+    now = [1000.0]
+    reranker = module.CohereReranker("key", "rerank-v3.5", clock=lambda: now[0])
+    calls = []
+
+    def flaky(**kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise ValueError("bad response")  # not transient: one call
+        return type("R", (), {"results": [type("X", (), {"index": 0, "relevance_score": 0.9})]})
+
+    monkeypatch.setattr(reranker._client, "rerank", flaky)
+    with pytest.raises(ValueError):
+        reranker.rerank("q", ["a"])
+    with pytest.raises(module.RerankerUnavailable):
+        reranker.rerank("q", ["a"])  # instant: no call made
+    assert len(calls) == 1
+    now[0] += module.CohereReranker.COOLDOWN_S
+    assert reranker.rerank("q", ["a"]) == [(0, 0.9)], "tried again after the cooldown"
+
+
 def test_cached_reranker_calls_the_api_once(tmp_path):
     reranker = CachedReranker(OverlapReranker(), DiskCache(tmp_path / "c.sqlite"))
     first = reranker.rerank("fee", ["fee", "other"])
@@ -159,6 +210,23 @@ def test_hybrid_rerank_returns_top_k_with_gate(retriever):
     assert scores == sorted(scores, reverse=True)
     assert result.passed_gate is True and result.top_score == scores[0]
     assert {"embed", "vector", "keyword", "rerank"} <= result.timings_ms.keys()
+
+
+class _DownReranker:
+    model = "down"
+
+    def rerank(self, query, texts):
+        raise TimeoutError("reranker not responding")
+
+
+@pytest.mark.integration
+def test_reranker_outage_falls_back_to_search_order(retriever):
+    healthy = retriever.retrieve("is there a restocking fee on returns", "hybrid", top_k=3)
+    retriever.reranker = _DownReranker()
+    result = retriever.retrieve("is there a restocking fee on returns", "hybrid_rerank", top_k=3)
+    assert [c.chunk_id for c in result.chunks] == [c.chunk_id for c in healthy.chunks]
+    assert result.top_score is None, "no relevance score: visible to logs and evals"
+    assert result.passed_gate is True, "the customer still gets an answer from the sources"
 
 
 @pytest.mark.integration

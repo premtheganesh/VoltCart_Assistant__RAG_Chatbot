@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     embed_batch_size: int = 96  # Cohere's maximum texts per embed call
     rerank_provider: str = "cohere"
     rerank_model: str = "rerank-v3.5"
+    rerank_timeout_s: float = 8.0  # per call; if reranking fails, search order is used instead
 
     # Retrieval
     retrieval_candidates: int = 20  # taken from each of vector and keyword search
@@ -62,6 +63,10 @@ class Settings(BaseSettings):
     prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"  # backup injection check
     output_guard: bool = False  # also check the bot's replies (one more call per answer)
     grounding_check: bool = False  # L2: a judge verifies each answer against its sources
+
+    # Evals: grades answers. A different model from LLM_MODEL_MAIN, so the answer model doesn't
+    # grade itself, and its own daily quota on the free tier
+    judge_model: str = "groq:openai/gpt-oss-20b"
 
     # Agent
     history_messages: int = 10  # earlier messages the LLM sees (all are stored)

@@ -14,7 +14,7 @@ from langchain_core.language_models import BaseChatModel
 
 from app.config import Settings, get_settings
 
-Role = Literal["main", "small", "safety"]
+Role = Literal["main", "small", "safety", "judge"]
 
 
 def get_chat_model(role: Role, settings: Settings | None = None) -> BaseChatModel:
@@ -23,6 +23,7 @@ def get_chat_model(role: Role, settings: Settings | None = None) -> BaseChatMode
         "main": settings.llm_model_main,
         "small": settings.llm_model_small,
         "safety": settings.safety_model,
+        "judge": settings.judge_model,
     }[role]
     provider = model.split(":", 1)[0]
 
@@ -31,6 +32,10 @@ def get_chat_model(role: Role, settings: Settings | None = None) -> BaseChatMode
         # A short verdict; little reasoning needed. Retry: per-minute limits reset in seconds,
         # and a guard that gives up instantly under load would let attacks through
         kwargs.update(max_retries=3, max_tokens=800, reasoning_effort="low")
+    if role == "judge":
+        # Grades eval answers: a verdict plus a short claim list. Patient retries: evals aren't
+        # interactive, so waiting out a per-minute limit is fine
+        kwargs.update(max_retries=5, max_tokens=2000, reasoning_effort="low")
     if role == "small":
         # Fail fast: the agent falls back to the main model (a daily-limit 429 can mean waiting
         # minutes inside the client's retry loop)

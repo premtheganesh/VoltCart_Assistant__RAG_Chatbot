@@ -71,3 +71,21 @@ Order answers assume the sample data date (2026-10-10 or later); for example VC-
 ## Adding a case
 
 Append a line with the next id. Write the answer from the documents, not general knowledge. Put any computed number's arithmetic in `calculation`, and add `tags` for the edge cases it covers. Then run `make test`.
+
+## answer_sample.txt: the default answer-quality sample (40 ids)
+
+`make eval-answers` grades these 40 golden questions (about 80 Cohere calls on a cold cache). They cover all 9 categories and all 35 edge-case tags. Use `args="--all"` for all 122, or `args="--ids g001 g086"` for a few.
+
+## synthetic_candidates.jsonl: drafts to review (made by `make synthetic`)
+
+Questions a model drafted from random document passages, in golden format with `"status": "candidate"`. No eval reads this file. Review each one: is it something a customer would ask, and is the expected answer right? Copy the good ones into `golden.jsonl` with the next free id, remove `status` and `source_passage`, then run `make test`.
+
+## How answers are graded (`scripts/eval_answers.py`)
+
+A judge model (`JUDGE_MODEL`, a different model from the one that answers) reads the question, the expected behavior, the reference answer, the sources the bot retrieved, and the bot's reply. It returns:
+
+- `behavior_ok`: did the bot do the right kind of thing (answer, ask to verify, refuse, admit it doesn't know)?
+- `correctness`: `correct` / `partial` / `wrong` against the reference answer (counted as 1 / 0.5 / 0)
+- `claims`: each factual claim in the reply, marked supported or not by the retrieved sources. **Faithfulness** = supported ÷ all claims.
+
+Checks done in code, not by the judge: `must_not_include` traps and order-verification leaks.

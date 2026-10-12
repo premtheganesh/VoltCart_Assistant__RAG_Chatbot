@@ -25,6 +25,7 @@ from app.db.session import get_engine
 from app.llm.embeddings import embed_model_id, embed_queries, get_embedder
 from app.retrieval.reranker import Reranker, get_reranker
 from app.retrieval.retriever import MODES, RetrievalResult, Retriever
+from scripts.eval_common import write_metrics
 
 GOLDEN = PROJECT_ROOT / "evals" / "datasets" / "golden.jsonl"
 CACHE = PROJECT_ROOT / "evals" / ".cache" / "retrieval.sqlite"
@@ -187,6 +188,10 @@ def main() -> None:
     print(f"Report written to {REPORT.relative_to(PROJECT_ROOT)}")
 
     best = "hybrid_rerank" if "hybrid_rerank" in results else args.modes[-1]
+    scores = summarize(results[best])
+    write_metrics("retrieval", {"mode": best, "questions": len(results[best]),
+                                "hit_at_5": round(scores["hit@5"], 4),
+                                "mrr_at_5": round(scores["MRR@5"], 4)})  # fmt: skip
     if summarize(results[best])["hit@5"] < args.min_hit:
         sys.exit(f"FAIL: {best} hit@5 is below the target {args.min_hit}")
 

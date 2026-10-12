@@ -7,6 +7,7 @@
 Each mode stops at a different point, so the eval can measure what every stage adds.
 """
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Literal
@@ -19,6 +20,8 @@ from app.config import Settings, get_settings
 from app.db.models import Chunk, Document
 from app.retrieval.reranker import Reranker
 from app.retrieval.search import keyword_search, reciprocal_rank_fusion, vector_search
+
+log = logging.getLogger(__name__)
 
 Mode = Literal["vector", "keyword", "hybrid", "hybrid_rerank"]
 MODES: tuple[Mode, ...] = ("vector", "keyword", "hybrid", "hybrid_rerank")
@@ -125,12 +128,22 @@ class Retriever:
         result = RetrievalResult(query=query, mode=mode, chunks=chunks, candidates=len(chunks))
 
         if mode == "hybrid_rerank" and chunks:
-            order = timed("rerank", lambda: self.reranker.rerank(query, [c.text for c in chunks]))
-            chunks = [chunks[i] for i, _ in order]
-            for chunk, (_, score) in zip(chunks, order, strict=True):
-                chunk.rerank_score = chunk.score = score
-            result.top_score = chunks[0].score
-            result.passed_gate = result.top_score >= s.min_relevance
+            try:
+                order = timed(
+                    "rerank", lambda: self.reranker.rerank(query, [c.text for c in chunks])
+                )
+            except Exception:
+                # Reranker down: keep the hybrid (RRF) order rather than fail the customer. No
+                # relevance score means no gate; the answer prompt still allows only these sources.
+                # top_score stays None, which is how logs and evals see the degraded answer.
+                log.warning("rerank failed; using search order instead", exc_info=True)
+                result.passed_gate = True
+            else:
+                chunks = [chunks[i] for i, _ in order]
+                for chunk, (_, score) in zip(chunks, order, strict=True):
+                    chunk.rerank_score = chunk.score = score
+                result.top_score = chunks[0].score
+                result.passed_gate = result.top_score >= s.min_relevance
         elif mode == "hybrid_rerank":
             result.top_score, result.passed_gate = 0.0, False
 

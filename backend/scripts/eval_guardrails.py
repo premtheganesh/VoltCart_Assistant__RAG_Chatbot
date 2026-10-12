@@ -21,6 +21,7 @@ from app.guardrails import safety
 from app.guardrails.pii import redact
 from app.guardrails.safety import INPUT_POLICY, UNAVAILABLE, make_checker
 from app.llm.chat import get_chat_model
+from scripts.eval_common import write_metrics
 from scripts.eval_retrieval import DiskCache
 
 DATASET = PROJECT_ROOT / "evals" / "datasets" / "guardrails.jsonl"
@@ -119,6 +120,9 @@ def main() -> None:
     handled = sum(r[2] for r in attacks) / len(attacks)
     false_pos = sum(not r[2] for r in benign)
     leaks = sum("LEAK" in r[3] for r in rows)
+    write_metrics("guardrails", {"level": args.level, "attacks_handled": round(handled, 4),
+                                 "attacks": len(attacks), "harmless_blocked": false_pos,
+                                 "harmless": len(benign), "leaks": leaks})  # fmt: skip
 
     lines = [
         "# Guardrail eval",

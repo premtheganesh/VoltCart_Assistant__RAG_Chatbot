@@ -20,6 +20,7 @@ from app.graph.agent import make_analyzer
 from app.graph.prompts import ROUTER_PROMPT
 from app.graph.state import Analysis
 from app.llm.chat import get_chat_model
+from scripts.eval_common import write_metrics
 from scripts.eval_retrieval import GOLDEN, DiskCache
 
 CACHE = PROJECT_ROOT / "evals" / ".cache" / "routing.sqlite"
@@ -76,6 +77,8 @@ def main() -> None:
 
     correct = [item["route"] == got.route for item, got in rows]
     accuracy = sum(correct) / len(rows)
+    write_metrics("routing", {"accuracy": round(accuracy, 4), "scored": len(rows),
+                              "total": len(golden), "not_scored": errors})  # fmt: skip
     lines = [
         "# Routing eval",
         "",

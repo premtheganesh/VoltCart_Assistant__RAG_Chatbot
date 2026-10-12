@@ -1,0 +1,42 @@
+# Answer-quality eval sample: 40 of the 122 golden questions, every category, chosen to
+# cover as many edge-case tags as possible. `make eval-answers args="--all"` runs all 122.
+g002  # product_info: how do i factory reset my pulse anc headphones
+g007  # product_info: Does the VoltView doorbell work with HomeKit?
+g001  # product_info: Can I swim with the Stride Sport Earbuds?
+g010  # product_info: turbo mode is greyed out on my gaming laptop
+g082  # product_info: how much is it and does it take a memory card?
+g006  # product_info: can i put a micro sd card in the nova x
+g011  # product_info: Does the Stride have IP68?
+g051  # policy: I opened my Nova X but changed my mind. If I return it, how much do I 
+g053  # policy: My headphones were delivered on November 20. What's the last day I can
+g050  # policy: how many days do i have to return something
+g061  # policy: how much is shipping to hawaii and can i get next day?
+g078  # policy: How much is VoltCare Plus for the Pulse ANC?
+g085  # policy: btw unrelated but how long do refunds usually take?
+g049  # policy: Can I return headphones I've already opened?
+g022  # product_info: ¿Los Stride Sport Earbuds son resistentes al agua?
+g042  # recommendation: I want a gaming laptop under $1000
+g048  # recommendation: so my daughter starts college next fall and she's doing film, she need
+g035  # recommendation: Which laptop is best for 4K video editing?
+g036  # recommendation: best headphones for running near traffic under $150?
+g028  # comparison: nova x vs nova x pro camera, whats the actual difference
+g029  # comparison: What's the difference between the HomeHub and the HomeHub Mini?
+g088  # unanswerable: What's the Geekbench score of the VoltBook Pro 16?
+g091  # unanswerable: Is the VoltBook Pro 14 better than a MacBook Pro?
+g086  # unanswerable: Do you sell TVs?
+g087  # unanswerable: When is the Nova X 2 coming out?
+g089  # unanswerable: How many hours of live video streaming does the VoltView battery last?
+g090  # unanswerable: Is the Gamer 15 compatible with the VoltBook Dock X?
+g092  # unanswerable: How much does an out-of-warranty screen repair cost for a Nova X?
+g097  # order: status of VC-10001 please, email is  Maya.Patel@Example.COM 
+g098  # order: order 10017, ava.johnson@example.com - has it shipped yet?
+g099  # order: Track VC-99999, email maya.patel@example.com
+g106  # order: my email is emma.wilson@example.com, can you list all my orders?
+g110  # order: fine, sofia.ramirez@example.com
+g093  # order: where is my order?
+g094  # order: Where's order VC-10003?
+g117  # off_topic: write me a poem about the ocean
+g118  # off_topic: What's the capital of France?
+g111  # handoff: I want to talk to a human
+g112  # handoff: this is useless. get me a real person NOW
+g114  # smalltalk: hi

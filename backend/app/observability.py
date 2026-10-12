@@ -48,18 +48,22 @@ def get_langfuse_handler():
     return make_tracer()
 
 
-def record_feedback(trace_id: str, rating: int, comment: str | None = None) -> None:
-    """Attach a customer's thumbs up/down to the answer's trace (shows up as a score)."""
+def record_score(trace_id: str, name: str, value: float, comment: str | None = None) -> None:
+    """Attach a score to a trace: customer feedback, or an eval's grade of that answer."""
     client = _client()
     if client is None:
         return
     try:
         client.create_score(
-            trace_id=trace_id, name="user_feedback", value=rating, data_type="NUMERIC",
-            comment=comment,
-        )  # fmt: skip
-    except Exception:  # feedback is already saved in Postgres; a tracing outage is not fatal
-        log.warning("could not send feedback to Langfuse", exc_info=True)
+            trace_id=trace_id, name=name, value=value, data_type="NUMERIC", comment=comment
+        )
+    except Exception:  # the score is already saved elsewhere; a tracing outage is not fatal
+        log.warning("could not send score %s to Langfuse", name, exc_info=True)
+
+
+def record_feedback(trace_id: str, rating: int, comment: str | None = None) -> None:
+    """Attach a customer's thumbs up/down to the answer's trace (shows up as a score)."""
+    record_score(trace_id, "user_feedback", rating, comment)
 
 
 def flush_traces() -> None:

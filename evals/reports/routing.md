@@ -1,17 +1,17 @@
 # Routing eval
 
-Run 2026-10-11 23:08 UTC, router `groq:qwen/qwen3.8-27b`, 109 golden questions.
+Run 2026-10-12 18:52 UTC, router `groq:qwen/qwen3.8-27b`, 122 golden questions.
 
 **Accuracy: 0.98** (target 0.9)
 
 | Expected route | Questions | Correct |
 | --- | --- | --- |
-| handoff | 2 | 2 |
-| off_topic | 1 | 1 |
-| order | 13 | 13 |
+| handoff | 3 | 3 |
+| off_topic | 6 | 6 |
+| order | 18 | 18 |
 | product_info | 70 | 68 |
 | recommendation | 22 | 22 |
-| smalltalk | 1 | 1 |
+| smalltalk | 3 | 3 |
 
 ## Wrong routes
 
@@ -31,3 +31,5 @@ Run 2026-10-11 23:08 UTC, router `groq:qwen/qwen3.8-27b`, 109 golden questions.
 | g095 | sofia.ramirez@example.com | Where's order VC-10003? |
 | g100 | ok can I still cancel it? | Can I still cancel order VC-10017? |
 | g101 | actually I want to cancel it | cancel order VC-10003 |
+| g105 | great, and what about VC-10003? | Status of order VC-10003 |
+| g110 | fine, sofia.ramirez@example.com | Where is order VC-10003? email sofia.ramirez@example.com |

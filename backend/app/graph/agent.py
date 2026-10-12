@@ -314,14 +314,17 @@ class Agent:
 
 
 @contextmanager
-def open_agent(settings: Settings | None = None, *, persist: bool = True) -> Iterator[Agent]:
+def open_agent(
+    settings: Settings | None = None, *, persist: bool = True, strict: bool = False
+) -> Iterator[Agent]:
     """persist=True stores conversations in Postgres (survive restarts); False keeps them in
-    memory only (tests, throwaway runs)."""
+    memory only (tests, throwaway runs). strict=True (evals): a failed router call raises
+    instead of falling back to keyword routing, so an outage is never scored as an answer."""
     settings = settings or get_settings()
     small, main = get_chat_model("small", settings), get_chat_model("main", settings)
     deps = dict(
         # Small-model jobs fall back to the main model if the small one fails or is out of quota
-        analyze=make_analyzer(small, backup=main),
+        analyze=make_analyzer(small, backup=main, fallback=not strict),
         retrieve=make_retrieve(settings),
         answer_llm=main,
         chat_llm=small.with_fallbacks([main]),

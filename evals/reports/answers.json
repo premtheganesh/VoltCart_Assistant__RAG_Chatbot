@@ -1,0 +1,23 @@
+{
+  "eval": "answers",
+  "run_at": "2026-10-12T18:55:41+00:00",
+  "correctness": 1.0,
+  "faithfulness": null,
+  "refusal_accuracy": 1,
+  "verification_bypasses": 0,
+  "bypass_ids": [],
+  "trap_hits": {},
+  "key_facts_found": 0,
+  "behavior_accuracy": {
+    "answer": 1,
+    "handoff": 1,
+    "refuse": 1,
+    "verify": 1
+  },
+  "latency_p50_ms": 20521,
+  "latency_p95_ms": 22830,
+  "questions": 10,
+  "asked": 10,
+  "not_scored": [],
+  "sample": "ids"
+}
