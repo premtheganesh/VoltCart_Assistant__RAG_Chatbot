@@ -8,19 +8,27 @@ with open_agent() as agent:
 import logging
 import re
 import time
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessageChunk, AnyMessage, HumanMessage, SystemMessage
 from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db.session import get_engine
-from app.graph.builder import Analyzer, ContactExtractor, RetrieveFn, build_graph, text_of
+from app.graph.builder import (
+    Analyzer,
+    CitationStream,
+    ContactExtractor,
+    RetrieveFn,
+    build_graph,
+    text_of,
+)
 from app.graph.prompts import CONTACT_PROMPT, PII_NOTICE, ROUTER_PROMPT
 from app.graph.state import Analysis, Contact
 from app.guardrails.grounding import make_grounding_checker
@@ -28,7 +36,7 @@ from app.guardrails.pii import redact
 from app.guardrails.safety import INPUT_POLICY, OUTPUT_POLICY, make_checker, make_prompt_guard
 from app.llm.chat import get_chat_model
 from app.llm.embeddings import get_embedder
-from app.observability import get_langfuse_handler
+from app.observability import make_tracer
 from app.retrieval.reranker import get_reranker
 from app.retrieval.retriever import RetrievalResult, Retriever
 from app.tools import products
@@ -190,25 +198,76 @@ class Turn:
     safety_reason: str = ""
     grounded: bool | None = None  # L2 grounding result, when enabled
     notice: str | None = None  # shown above the answer, e.g. "we removed your card number"
+    question: str = ""  # the customer's message after PII redaction (what was stored)
+    turn_id: str = ""  # also the Langfuse trace id
+    ticket_ref: str | None = None  # support ticket created in this conversation
+
+
+# Nodes whose model output is the reply itself (the router and safety models are not)
+STREAMED_NODES = {"answer", "order", "smalltalk"}
+PII_KINDS = {"card": "card number", "ssn": "Social Security number", "cvv": "security code"}
 
 
 class Agent:
-    def __init__(self, graph, settings: Settings, tracer=None):
-        """tracer: a LangChain callback (Langfuse) that records each turn, or None."""
+    def __init__(self, graph, settings: Settings, tracer=None, *, stream_tokens: bool = True):
+        """tracer: turn_id -> LangChain callback (Langfuse) for that turn, or None.
+        stream_tokens: False when a check runs after the answer is written (L2 grounding, output
+        guard): the customer must not see a draft that might be rewritten or withheld."""
         self.graph, self.settings, self.tracer = graph, settings, tracer
+        self.stream_tokens = stream_tokens
 
-    def ask(self, thread_id: str, message: str) -> Turn:
-        config = {
+    def _config(self, thread_id: str, turn_id: str) -> dict:
+        handler = self.tracer(turn_id) if self.tracer else None
+        return {
             "configurable": {"thread_id": thread_id},
-            "callbacks": [self.tracer] if self.tracer else [],
+            "callbacks": [handler] if handler else [],
             "metadata": {"langfuse_session_id": thread_id},  # groups a chat's turns in Langfuse
             "run_name": "voltcart-chat",
         }
+
+    def ask(self, thread_id: str, message: str, turn_id: str | None = None) -> Turn:
+        turn_id = turn_id or uuid.uuid4().hex
         start = time.perf_counter()
         # PII never reaches the models, the chat memory or the traces
         clean = redact(message)
-        state = self.graph.invoke({"messages": [HumanMessage(clean.text)]}, config)
-        kinds = {"card": "card number", "ssn": "Social Security number", "cvv": "security code"}
+        state = self.graph.invoke(
+            {"messages": [HumanMessage(clean.text)]}, self._config(thread_id, turn_id)
+        )
+        return self._turn(state, clean, start, turn_id)
+
+    def stream(
+        self, thread_id: str, message: str, turn_id: str | None = None
+    ) -> Iterator[tuple[str, object]]:
+        """Like ask(), but yields ("token", text) while the reply is written, then ("done", Turn).
+        Fixed replies (refusals, "please share your email") come only in the Turn."""
+        turn_id = turn_id or uuid.uuid4().hex
+        start = time.perf_counter()
+        clean = redact(message)
+        citations, state = CitationStream(), {}
+        for mode, data in self.graph.stream(
+            {"messages": [HumanMessage(clean.text)]},
+            self._config(thread_id, turn_id),
+            stream_mode=["messages", "values"],
+        ):
+            if mode == "values":
+                state = data  # the full state after each step; the last one is the result
+                continue
+            chunk, meta = data
+            # AIMessageChunk = a token as the model writes it (whole messages are skipped);
+            # tool-call chunks are the model choosing a catalog tool, not words for the customer
+            if (
+                self.stream_tokens
+                and isinstance(chunk, AIMessageChunk)
+                and not chunk.tool_call_chunks
+                and meta.get("langgraph_node") in STREAMED_NODES
+                and (text := citations.feed(text_of(chunk)))
+            ):
+                yield "token", text
+        if text := citations.flush():
+            yield "token", text
+        yield "done", self._turn(state, clean, start, turn_id)
+
+    def _turn(self, state: dict, clean, start: float, turn_id: str) -> Turn:
         return Turn(
             answer=text_of(state["messages"][-1]),
             route=state.get("route", ""),
@@ -221,9 +280,12 @@ class Agent:
             safety=state.get("safety", "safe"),
             safety_reason=state.get("safety_reason", ""),
             grounded=state.get("grounded"),
-            notice=PII_NOTICE.format(kinds=" and ".join(kinds[k] for k in clean.found))
+            notice=PII_NOTICE.format(kinds=" and ".join(PII_KINDS[k] for k in clean.found))
             if clean.found
             else None,
+            question=clean.text,
+            turn_id=turn_id,
+            ticket_ref=state.get("ticket_ref"),
         )
 
 
@@ -246,13 +308,23 @@ def open_agent(settings: Settings | None = None, *, persist: bool = True) -> Ite
         history_messages=settings.history_messages,
         **make_guardrails(settings, main),
     )
-    tracer = get_langfuse_handler()
+    options = dict(
+        tracer=make_tracer if settings.langfuse_enabled else None,
+        stream_tokens=not (settings.grounding_check or settings.output_guard),
+    )
     if not persist:
-        yield Agent(build_graph(**deps, checkpointer=InMemorySaver()), settings, tracer)
+        yield Agent(build_graph(**deps, checkpointer=InMemorySaver()), settings, **options)
         return
 
     from langgraph.checkpoint.postgres import PostgresSaver
+    from psycopg.rows import dict_row
+    from psycopg_pool import ConnectionPool
 
-    with PostgresSaver.from_conn_string(settings.psycopg_url) as checkpointer:
+    # A pool, not one connection: the API serves several chats at the same time
+    with ConnectionPool(
+        settings.psycopg_url, max_size=10, open=True,
+        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+    ) as pool:  # fmt: skip
+        checkpointer = PostgresSaver(pool)
         checkpointer.setup()  # creates LangGraph's checkpoint tables on first use
-        yield Agent(build_graph(**deps, checkpointer=checkpointer), settings, tracer)
+        yield Agent(build_graph(**deps, checkpointer=checkpointer), settings, **options)

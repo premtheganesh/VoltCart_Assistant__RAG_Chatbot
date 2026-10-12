@@ -31,3 +31,6 @@ How to Build a Production-Ready RAG Chatbot.pdf
 
 # Eval API-response cache (re-running evals costs no API calls)
 evals/.cache/
+
+# Documents uploaded through the admin panel
+sample_data/docs/uploads/

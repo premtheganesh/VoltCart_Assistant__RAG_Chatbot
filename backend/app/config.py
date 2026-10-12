@@ -66,9 +66,27 @@ class Settings(BaseSettings):
     # Agent
     history_messages: int = 10  # earlier messages the LLM sees (all are stored)
 
+    # API
+    # Browser origins allowed to call the API, comma-separated (the chat site and the widget)
+    cors_origins: str = "http://localhost:3000"
+    chat_rate_per_minute: int = 20  # messages per visitor (IP address) per minute
+    login_rate_per_minute: int = 5  # admin login attempts per IP per minute (slows guessing)
+    max_upload_mb: int = 10
+    uploads_dir: str = "sample_data/docs/uploads"  # admin uploads; inside docs_dir, so ingested
+
+    # Admin panel: login is disabled until ADMIN_PASSWORD is set
+    admin_password: SecretStr | None = None
+    # Signs admin login tokens. Unset: a random one per run (everyone is logged out on restart)
+    jwt_secret: SecretStr | None = None
+    admin_token_hours: int = 8
+
     # App
     app_env: str = "dev"
     log_level: str = "INFO"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
     def langfuse_enabled(self) -> bool:

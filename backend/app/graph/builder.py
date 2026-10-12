@@ -69,6 +69,29 @@ def normalize_citations(text: str) -> str:
     return NATIVE_CITATION.sub(r"[\1]", text)
 
 
+class CitationStream:
+    """normalize_citations for streamed tokens: a native citation can arrive split over several
+    tokens ("【", "1†L1", "】"), so an unfinished one is held back until it closes."""
+
+    MAX_CITATION = 40  # longer than any real citation: an unmatched "【" is just text
+
+    def __init__(self):
+        self.pending = ""
+
+    def feed(self, text: str) -> str:
+        self.pending += text
+        start = self.pending.rfind("【")
+        if start != -1 and "】" not in self.pending[start:]:
+            if len(self.pending) - start < self.MAX_CITATION:
+                out, self.pending = self.pending[:start], self.pending[start:]
+                return normalize_citations(out)
+        return self.flush()
+
+    def flush(self) -> str:
+        out, self.pending = normalize_citations(self.pending), ""
+        return out
+
+
 def text_of(message: AnyMessage) -> str:
     content = message.content
     if isinstance(content, str):

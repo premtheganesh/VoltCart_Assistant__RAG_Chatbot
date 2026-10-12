@@ -28,3 +28,11 @@ def get_session() -> Iterator[Session]:
 
 # Use as a route parameter type: `def route(session: DbSession): ...`
 DbSession = Annotated[Session, Depends(get_session)]
+
+
+def get_session_factory() -> sessionmaker[Session]:
+    """FastAPI dependency for work that outlives the request handler (a streamed reply)."""
+    return sessionmaker(bind=get_engine(), expire_on_commit=False)
+
+
+SessionFactory = Annotated[sessionmaker[Session], Depends(get_session_factory)]

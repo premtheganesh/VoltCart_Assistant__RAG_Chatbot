@@ -268,3 +268,46 @@ class Ticket(TimestampMixin, Base):
     @property
     def reference(self) -> str:
         return f"T-{self.id:05d}"
+
+
+class ChatTurn(Base):
+    """One question and answer, logged by the API for the admin panel and feedback.
+    (LangGraph's checkpoint tables hold the agent's memory; this is the readable record.)"""
+
+    __tablename__ = "chat_turns"
+
+    # 32 hex chars: also the turn's Langfuse trace id, so feedback lands on the right trace
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(100), index=True)
+    question: Mapped[str] = mapped_column(Text)  # after PII redaction
+    answer: Mapped[str] = mapped_column(Text)
+    route: Mapped[str] = mapped_column(String(30))
+    citations: Mapped[list[dict]] = mapped_column(JSONB, default=list)
+    safety: Mapped[str] = mapped_column(String(20), default="safe")
+    top_score: Mapped[float | None] = mapped_column()
+    grounded: Mapped[bool | None] = mapped_column()
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+    feedback: Mapped["Feedback | None"] = relationship(
+        back_populates="turn", cascade="all, delete-orphan"
+    )
+
+
+class Feedback(TimestampMixin, Base):
+    """A customer's thumbs up (1) or down (-1) on one answer, with an optional comment."""
+
+    __tablename__ = "feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    turn_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_turns.id", ondelete="CASCADE"), unique=True
+    )
+    rating: Mapped[int] = mapped_column(Integer, index=True)
+    comment: Mapped[str | None] = mapped_column(Text)
+
+    turn: Mapped[ChatTurn] = relationship(back_populates="feedback")
+
+    __table_args__ = (CheckConstraint("rating IN (-1, 1)", name="valid_rating"),)
