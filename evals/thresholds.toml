@@ -1,4 +1,4 @@
-# Quality gates from docs/PRD.md section 8. `make eval` fails if any metric misses its target.
+# Quality gates. `make eval` fails if any metric misses its target.
 # min = the result must be at least this; max = at most this.
 
 [retrieval.hit_at_5]

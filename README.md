@@ -37,7 +37,7 @@ It runs entirely on **free tiers** (Groq for the language models, Cohere for emb
 | Re-embeds everything on every update | **Incremental ingestion**: content hashes skip unchanged files and reuse unchanged chunks |
 | Lets the model run SQL or see raw data | The model only calls **predefined tools**. Order data appears only after verification in code, and never includes other customers |
 | One system prompt as the only safety | **Layered guardrails**: PII redaction, a safety classifier with a backup, prompt rules, verification in code, optional grounding and output checks, all **measured on an attack set** |
-| "It looks good to me" | **Evals with quality gates**: retrieval, routing, guardrails, and an LLM judge scoring correctness and faithfulness against the PRD targets |
+| "It looks good to me" | **Evals with quality gates**: retrieval, routing, guardrails, and an LLM judge scoring correctness and faithfulness against fixed targets |
 | Breaks when a provider is down | **Resilience**: timeouts, retries, model fallbacks and a circuit breaker, so a dead reranker slows answers down instead of freezing them |
 | A chat box | Streaming UI with citations and product cards, an isolated embeddable widget, an admin panel, tracing and feedback |
 
@@ -157,7 +157,7 @@ Run it with `make ingest`, or upload a file in the admin panel: it becomes searc
 
 ## Evaluation results
 
-The project is measured against the targets in the PRD with its own eval suite: 122 golden questions written to cover edge cases (typos, follow-ups, false premises, calculations, another language, order security), plus 32 attack and look-alike messages. `make eval` runs everything and checks each target in [evals/thresholds.toml](evals/thresholds.toml).
+The project is measured against fixed quality targets with its own eval suite: 122 golden questions written to cover edge cases (typos, follow-ups, false premises, calculations, another language, order security), plus 32 attack and look-alike messages. `make eval` runs everything and checks each target in [evals/thresholds.toml](evals/thresholds.toml).
 
 | Metric | Result | Target |
 |---|---|---|
@@ -173,7 +173,7 @@ The project is measured against the targets in the PRD with its own eval suite: 
 
 Answer quality was graded on a 40-question sample that covers all 9 question categories and all 35 edge-case types. The judge is a different model from the one that answers. On free-tier APIs, a full answer takes a few seconds to about 20 seconds, because providers limit tokens per minute; paid tiers remove that wait.
 
-The evals also found real problems, which were fixed: a reranker call that could hang for 30 minutes, a router that called gaming questions off topic, and a refund calculation that missed a fee. The [build log](docs/build-log) explains each one.
+The evals also found real problems, which were fixed: a reranker call that could hang for 30 minutes, a router that called gaming questions off topic, and a refund calculation that missed a fee.
 
 ## Tech stack
 
@@ -276,17 +276,13 @@ backend/
 frontend/         Next.js: chat (/), widget (/widget + public/widget.js), admin (/admin)
 sample_data/      VoltCart documents, catalog, customers, orders, widget demo page
 evals/            golden and attack datasets, thresholds, reports
-docs/             PRD, phases, knowledge base, deploy guide, build log, images
+docs/             deployment guide and README images
 .github/          CI workflow
 ```
 
 ## Docs
 
-- [docs/PRD.md](docs/PRD.md): the product plan (goals, features, quality targets)
-- [docs/PHASES.md](docs/PHASES.md): the 12 build phases
-- [docs/build-log/](docs/build-log): what each phase built, why, the test results and the lessons learned
-- [docs/KNOWLEDGE_BASE.md](docs/KNOWLEDGE_BASE.md): the sample company's data
-- [docs/DEPLOY.md](docs/DEPLOY.md): deployment guide
+- [docs/DEPLOY.md](docs/DEPLOY.md): deployment guide and checklist before real customers
 - [evals/datasets/README.md](evals/datasets/README.md): how the test sets and grading work
 
 ## Security

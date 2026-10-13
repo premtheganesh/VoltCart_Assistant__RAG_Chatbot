@@ -54,5 +54,5 @@ Put a reverse proxy with HTTPS (Caddy or nginx) in front of ports 3000 and 8000,
 - [ ] `ADMIN_PASSWORD` and `JWT_SECRET` are long and random; `.env` never committed
 - [ ] `TRUSTED_PROXIES` set (or rate limits treat all visitors as one)
 - [ ] `make eval` passes against the deployed configuration (the models and `MIN_RELEVANCE` you actually use)
-- [ ] Paid tiers or fallback providers: free tiers cap tokens per minute and per day, so expect slow answers and outages under real traffic (see the Phase 11 build log)
+- [ ] Paid tiers or fallback providers: free tiers cap tokens per minute and per day, so expect slow answers and outages under real traffic
 - [ ] Database backups (Neon has point-in-time restore); Langfuse tracing on to watch real conversations and 👎 feedback

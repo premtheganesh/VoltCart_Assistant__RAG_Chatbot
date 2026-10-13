@@ -61,10 +61,10 @@ Every order status (processing, shipped, out for delivery, delivered, cancelled,
 
 ## How they're used
 
-- **Phase 4:** retrieval hit rate@5 and MRR from `expected_sources`.
-- **Phase 5-6:** routing accuracy from `route`; order verification from `order_ref` and `must_not_include` (target: 0 leaks).
-- **Phase 7:** guardrail block rate and false-positive rate from `guardrails.jsonl`.
-- **Phase 11:** full scoring: `must_include` / `must_not_include` checks, then an LLM judge compares answers with `expected_answer` for correctness and faithfulness.
+- **Retrieval eval:** hit rate@5 and MRR from `expected_sources`.
+- **Routing eval:** routing accuracy from `route`.
+- **Answer eval:** `must_include` / `must_not_include` checks, order verification leaks from `order_ref` and `must_not_include` (target: 0), and an LLM judge comparing answers with `expected_answer`.
+- **Guardrail eval:** block rate and false-positive rate from `guardrails.jsonl`.
 
 Order answers assume the sample data date (2026-10-10 or later); for example VC-10001's return window closed on 2026-10-02.
 
