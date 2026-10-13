@@ -4,7 +4,7 @@ A production-style **RAG customer-support chatbot** for VoltCart, a fictional el
 
 Everything runs on **free tiers** (Groq for the language models, Cohere for embeddings and reranking), and every provider can be swapped in `.env`.
 
-> **Status:** Phases 1–10 of 12 are done: knowledge base, retrieval, agent, tools, guardrails, API, chat UI, embeddable widget and admin panel. Next up: full evals, then hardening and deployment. See [docs/PHASES.md](docs/PHASES.md).
+> **Status:** all 12 phases are built: knowledge base, retrieval, agent, tools, guardrails, API, chat UI, widget, admin panel, evals with quality gates, Docker, CI and deploy docs. See [docs/PHASES.md](docs/PHASES.md) and the [build log](docs/build-log).
 
 ## What it does
 
@@ -48,7 +48,18 @@ Traces → Langfuse Cloud
 | Observability | Langfuse Cloud (one trace per answer; 👍/👎 recorded as scores) |
 | Tooling | uv, Ruff, pytest, Vitest, Make |
 
-## Quick start
+## Quick start (Docker: everything in one command)
+
+```bash
+cp .env.example .env        # fill in GROQ_API_KEY, COHERE_API_KEY, ADMIN_PASSWORD, JWT_SECRET
+make up                     # postgres + api + web: http://localhost:3000 (admin at /admin)
+make docker-seed            # sample products, customers, orders
+make docker-ingest          # embed the 21 sample documents + catalog (~3 Cohere calls)
+```
+
+`make down` stops it (data is kept). `make docker-logs` follows the logs (JSON, one line per request, with a request id).
+
+## Quick start (development: hot reload)
 
 **Prerequisites:** Docker Desktop, [uv](https://docs.astral.sh/uv/), Node.js 20+, plus free API keys from [Groq](https://console.groq.com) and [Cohere](https://dashboard.cohere.com) ([Langfuse](https://cloud.langfuse.com) is optional).
 
@@ -80,16 +91,34 @@ Run `make` commands from the project root. Run `uv` commands inside `backend/`. 
 | `make eval-retrieval`, `eval-routing`, `eval-guardrails` | Evals; reports go to `evals/reports/` |
 | `make lint` / `make format` | Ruff check / auto-fix |
 
-## Quality so far
+## Quality
 
-| Metric (122 golden questions, 32 attack cases) | Result | Target |
+`make eval` runs every eval and checks the PRD targets in [evals/thresholds.toml](evals/thresholds.toml). Results so far (40-question answer sample, 122 golden questions, 32 attack cases):
+
+| Metric | Result | Target |
 |---|---|---|
 | Retrieval hit@5 (hybrid + rerank) | 0.99 (MRR 0.93) | ≥ 0.85 |
-| Routing accuracy | 0.98 (109 of 122 scored so far) | ≥ 0.90 |
-| Harmless messages blocked by guardrails | 0 / 8 | 0 |
-| Data leaks in attack tests | 0 | 0 |
+| Answer correctness (LLM judge) | 0.85 | ≥ 0.80 |
+| Faithfulness (claims supported by sources) | 0.99 | ≥ 0.85 |
+| Refusal accuracy (not in docs / off topic) | 1.00 | ≥ 0.90 |
+| Routing accuracy | 0.99 | ≥ 0.90 |
+| Guardrails: attacks handled / harmless blocked / leaks | 24/24, 0/8, 0 | ≥ 0.90, 0, 0 |
+| Order verification bypasses | 0 | 0 |
 
-The input safety check alone catches 15 of the 24 attacks. The other 9 belong to later layers by design (verification in code, prompt rules), and end-to-end runs handled all of them with 0 leaks. Full numbers are in [evals/reports](evals/reports). Phase 11 adds answer-quality evals.
+Latency is the one PRD goal not met (p95 about 23 s vs 6 s), because free-tier rate limits make the bot wait. See [docs/build-log/PHASE_11.md](docs/build-log/PHASE_11.md) for what the evals caught and fixed.
+
+## CI
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push:
+- **backend:** lint, then migrations + seed on a fresh Postgres, then all tests, with offline embeddings (no API keys needed)
+- **frontend:** audit, type check, tests, build
+- **docker:** builds both images
+
+The evals run on demand (Actions > CI > Run workflow > evals), using the `GROQ_API_KEY` and `COHERE_API_KEY` repository secrets.
+
+## Deploying
+
+[docs/DEPLOY.md](docs/DEPLOY.md): Neon (Postgres + pgvector) + Render (API) + Vercel (website) on free tiers, or `make up` on one server, plus a checklist before real customers.
 
 ## Project layout
 
@@ -104,11 +133,12 @@ backend/
     tools/        product search, verified order lookup, tickets
     db/           models, sessions;  alembic/ migrations
   scripts/        ingest, chat, ask, evals, seed
-  tests/          ~1,575 tests (unit + database)
+  tests/          ~1,600 tests (unit + database)
 frontend/         Next.js: chat (/), widget (/widget + public/widget.js), admin (/admin)
 sample_data/      VoltCart documents, catalog, customers, orders
 evals/            golden + attack datasets, reports
-docs/             PRD, phases, knowledge base, build log per phase
+docs/             PRD, phases, knowledge base, deploy guide, build log per phase
+.github/          CI workflow
 ```
 
 ## Docs
@@ -117,6 +147,7 @@ docs/             PRD, phases, knowledge base, build log per phase
 - [docs/PHASES.md](docs/PHASES.md): the 12 build phases
 - [docs/KNOWLEDGE_BASE.md](docs/KNOWLEDGE_BASE.md): the sample company's data
 - [docs/build-log/](docs/build-log): what each phase built, why, test results and lessons learned
+- [docs/DEPLOY.md](docs/DEPLOY.md): deployment guide and pre-launch checklist
 - [evals/datasets/README.md](evals/datasets/README.md): eval dataset formats
 
 ## Security notes

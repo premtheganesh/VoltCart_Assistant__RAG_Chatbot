@@ -1,0 +1,17 @@
+# Keep images small and secret-free: build contexts never include these
+.git
+.env
+.env.*
+!.env.example
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+**/.next
+evals/.cache
+*.pdf
+!sample_data/**/*.pdf
+sample_data/docs/uploads
+.vscode
+.claude

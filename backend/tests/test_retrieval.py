@@ -8,10 +8,10 @@ import shutil
 
 import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from app.config import PROJECT_ROOT, Settings
-from app.db.models import EMBED_DIM, Document
+from app.db.models import EMBED_DIM, Chunk, Document
 from app.ingestion.pipeline import ingest
 from app.llm.embeddings import embed_queries
 from app.retrieval.reranker import OverlapReranker, _is_transient, get_reranker
@@ -252,3 +252,18 @@ def test_hybrid_records_both_ranks(retriever):
     result = retriever.retrieve("restocking fee", "hybrid", top_k=40)
     both = [c for c in result.chunks if c.vector_rank and c.keyword_rank]
     assert both, "hybrid keeps each chunk's rank in both lists, for debugging"
+
+
+@pytest.mark.integration
+def test_filtered_vector_search_returns_k_results(retriever):
+    """A document-type filter must not cut results short. (At this size Postgres filters first
+    and sorts exactly; on a big table it would use HNSW, where search.py's iterative scan keeps
+    looking until k rows pass the filter.)"""
+    from app.retrieval.search import vector_search
+
+    vector = retriever.embedder.embed_query("how long does shipping take")
+    help_chunks = retriever.session.scalar(
+        select(func.count(Chunk.id)).join(Document).where(Document.doc_type == "help_center")
+    )
+    found = vector_search(retriever.session, vector, k=10, doc_types=["help_center"])
+    assert len(found) == min(10, help_chunks) and help_chunks > 0

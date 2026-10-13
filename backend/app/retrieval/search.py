@@ -10,7 +10,7 @@ import re
 from collections import defaultdict
 from functools import reduce
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, select, text
 from sqlalchemy.orm import Session
 
 from app.db.models import Chunk, Document
@@ -35,6 +35,12 @@ def vector_search(
     doc_types: list[str] | None = None,
 ) -> list[tuple[int, float]]:
     """(chunk id, cosine similarity) best first. Uses the HNSW index."""
+    if products or doc_types:
+        # If Postgres uses the HNSW index for a filtered search (likely on large tables; at our
+        # size it filters first and sorts exactly), HNSW filters *after* finding neighbours and
+        # can return fewer than k rows. Iterative scan (pgvector 0.8+) keeps searching until k
+        # rows pass the filter. SET LOCAL: this transaction only
+        session.execute(text("SET LOCAL hnsw.iterative_scan = strict_order"))
     distance = Chunk.embedding.cosine_distance(query_vector)
     stmt = select(Chunk.id, (1 - distance).label("score")).order_by(distance).limit(k)
     return [

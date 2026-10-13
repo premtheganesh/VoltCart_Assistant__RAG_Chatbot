@@ -7,6 +7,7 @@ const widgetParents = process.env.WIDGET_ALLOWED_PARENTS ?? "*";
 
 const config: NextConfig = {
   reactStrictMode: true,
+  output: "standalone", // a self-contained server for the Docker image
   poweredByHeader: false, // don't advertise the framework in every response
   // The dev server only serves its scripts to the hosts it expects. localhost and 127.0.0.1 are
   // the same machine but different "origins" to a browser, so allow both

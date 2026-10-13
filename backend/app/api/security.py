@@ -53,9 +53,20 @@ class RateLimiter:
             )
 
 
-def client_ip(request: Request) -> str:
-    # Behind a proxy or load balancer this is the proxy's address: see Phase 12 (trusted proxies)
-    return request.client.host if request.client else "unknown"
+def client_ip(request: Request, trusted: set[str] | None = None) -> str:
+    """The visitor's IP, for rate limits. Behind a proxy, the connection comes from the proxy:
+    then the visitor is the right-most X-Forwarded-For entry that isn't one of our proxies.
+    The header is only believed when the connection itself comes from a trusted proxy."""
+    trusted = get_settings().trusted_proxy_list if trusted is None else trusted
+    peer = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("x-forwarded-for")
+    if peer not in trusted or not forwarded:
+        return peer
+    hops = [h.strip() for h in forwarded.split(",") if h.strip()]
+    for hop in reversed(hops):  # proxies append, so the last untrusted address is the client
+        if hop not in trusted:
+            return hop
+    return peer
 
 
 # ---------- admin tokens ----------

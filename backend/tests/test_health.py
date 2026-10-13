@@ -27,7 +27,9 @@ def test_health_ok_when_db_reachable():
     response = _client_with_session(session).get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "db": "ok", "pgvector": "0.8.0"}
+    assert response.json() == {
+        "status": "ok", "db": "ok", "pgvector": "0.8.0", "agent": "unavailable",
+    }  # fmt: skip
 
 
 def test_health_503_when_db_unreachable():

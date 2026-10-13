@@ -1,13 +1,17 @@
+# The whole app: `docker compose up --build` -> http://localhost:3000 (API on :8000).
+# Postgres only (for local development with `make api` / `make web`): `make db-up`.
+# Ports can be changed with POSTGRES_PORT / API_PORT / WEB_PORT in .env.
+
 services:
   postgres:
     # Official Postgres 16 image with the pgvector extension pre-installed
     image: pgvector/pgvector:pg16
-    container_name: voltcart-postgres
+    container_name: ${COMPOSE_PROJECT_NAME:-voltcart}-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-voltcart}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voltcart_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-voltcart}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
@@ -16,10 +20,46 @@ services:
       # Scripts here run once, the first time the database is created
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-voltcart} -d ${POSTGRES_DB:-voltcart}"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Inside the compose network the database is "postgres" on its own port 5432
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      # Uploaded documents survive container rebuilds
+      - uploads:/app/sample_data/docs/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  uploads:

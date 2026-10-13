@@ -2,10 +2,25 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails eval-answers eval eval-summary synthetic chat api web-install web web-test widget-demo test test-all lint format
+.PHONY: help up down docker-seed docker-ingest docker-logs install db-up db-down db-reset db-logs db-shell migrate migration seed generate-orders render-docs ingest preview ask eval-retrieval eval-routing eval-guardrails eval-answers eval eval-summary synthetic chat api web-install web web-test widget-demo test test-all lint format
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+
+up: ## Build and start the whole app in Docker (postgres + api + web): http://localhost:3000
+	docker compose up -d --build --wait
+
+down: ## Stop the Docker app (data is kept)
+	docker compose down
+
+docker-seed: ## Load sample store data into the Docker app's database
+	docker compose run --rm api python -m scripts.seed
+
+docker-ingest: ## Embed the documents + catalog into the Docker app's knowledge base
+	docker compose run --rm api python -m scripts.ingest $(args)
+
+docker-logs: ## Follow the Docker app's logs
+	docker compose logs -f api web
 
 install: ## Install backend dependencies into backend/.venv
 	cd $(BACKEND) && uv sync

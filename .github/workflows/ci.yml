@@ -1,0 +1,123 @@
+# CI: every push and pull request runs lint + all tests (backend against a real Postgres +
+# pgvector, with offline fake embeddings, so no API keys or quota needed) and builds the web app.
+# The evals job is manual (Actions tab > CI > Run workflow): it needs API keys and uses quota.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      evals:
+        description: "Also run the evals (uses Groq and Cohere quota)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: voltcart
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: voltcart
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U voltcart" --health-interval 5s --health-retries 10
+    env:
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD: ci
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.5"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Migrate and seed a fresh database
+        run: uv run alembic upgrade head && uv run python -m scripts.seed
+      - name: Tests (unit + database)
+        run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build both images
+        run: docker compose build
+
+  evals:
+    if: github.event_name == 'workflow_dispatch' && inputs.evals
+    needs: [backend]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: voltcart
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: voltcart
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U voltcart" --health-interval 5s --health-retries 10
+    env:
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD: ci
+      # Add these under Settings > Secrets and variables > Actions
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+      RERANK_MODEL: ${{ vars.RERANK_MODEL || 'rerank-v3.5' }}
+      MIN_RELEVANCE: ${{ vars.MIN_RELEVANCE || '0.15' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.5"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run alembic upgrade head && uv run python -m scripts.seed
+      - run: uv run python -m scripts.ingest
+      - name: Evals (results also uploaded as an artifact)
+        run: |
+          uv run python -m scripts.eval_retrieval || true
+          uv run python -m scripts.eval_routing || true
+          uv run python -m scripts.eval_guardrails --level full || true
+          uv run python -m scripts.eval_answers || true
+          uv run python -m scripts.eval_all
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eval-reports
+          path: evals/reports/

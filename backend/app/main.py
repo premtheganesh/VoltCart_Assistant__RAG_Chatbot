@@ -1,23 +1,24 @@
 """FastAPI entry point. Run with: make api (Swagger UI at http://localhost:8000/docs)"""
 
 import logging
+import re
+import time
+import uuid
 from contextlib import ExitStack, asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import admin, chat, health
 from app.config import get_settings
+from app.logging_setup import configure_logging, request_id
 from app.observability import flush_traces
 
 settings = get_settings()
-logging.basicConfig(
-    level=settings.log_level,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
-for noisy in ("httpx", "httpcore", "pdfminer"):
-    logging.getLogger(noisy).setLevel(logging.WARNING)
+configure_logging(settings.log_level, settings.log_format)
 log = logging.getLogger(__name__)
+access_log = logging.getLogger("app.request")
+SAFE_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
 @asynccontextmanager
@@ -42,8 +43,38 @@ app.add_middleware(
     # travels in a header), so credentials stay off
     allow_origins=settings.cors_origin_list,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    """Give every request an id (kept from X-Request-ID if a proxy set one), log one line per
+    request with its status and duration, and send the id back so a customer's report of a
+    problem can be matched to the logs."""
+    incoming = request.headers.get("x-request-id", "")
+    rid = incoming if SAFE_ID.match(incoming) else uuid.uuid4().hex[:12]
+    token = request_id.set(rid)  # every log line written for this request carries the id
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = rid
+        # Streamed replies: this is the time to the first byte; chat.py logs the full turn
+        access_log.info(
+            "%s %s %s", request.method, request.url.path, response.status_code,
+            extra={"status": response.status_code, "method": request.method,
+                   "path": request.url.path,
+                   "duration_ms": round((time.perf_counter() - start) * 1000, 1)},
+        )  # fmt: skip
+        return response
+    except Exception:
+        log.exception("unhandled error on %s %s", request.method, request.url.path)
+        raise
+    finally:
+        request_id.reset(token)  # only after the last log line of this request
+
+
 app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(admin.router)

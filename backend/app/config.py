@@ -85,9 +85,19 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr | None = None
     admin_token_hours: int = 8
 
+    # Proxies in front of the API (load balancer, Render/Railway router), comma-separated IPs.
+    # Only their X-Forwarded-For header is trusted for the visitor's IP (rate limits); from
+    # anyone else the header is ignored, because a client could send a fake one.
+    trusted_proxies: str = ""
+
     # App
     app_env: str = "dev"
     log_level: str = "INFO"
+    log_format: str = "text"  # "json" in production: one searchable JSON object per line
+
+    @property
+    def trusted_proxy_list(self) -> set[str]:
+        return {p.strip() for p in self.trusted_proxies.split(",") if p.strip()}
 
     @property
     def cors_origin_list(self) -> list[str]:
